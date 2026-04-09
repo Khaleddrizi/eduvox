@@ -19,8 +19,6 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 from backend.database.connection import get_db
 from backend.config import DATA_DIR, QUESTION_CACHE_PATH, CHUNK_SIZE, CHUNK_OVERLAP, GROQ_API_KEY
-from backend.core.pdf_utils import extract_text_from_pdf, chunk_text
-from backend.core.quiz_logic import QuizGenerator, QuestionCache
 from backend.database.models import QuizSessionModel, PatientModel, ParentModel, SpecialistModel, AdministratorModel, UserModel, QuestionModel, AuditLogModel
 from backend.database.repositories import (
     SpecialistRepository,
@@ -130,6 +128,10 @@ def _attach_program_info(db, patient_dict: dict) -> dict:
 
 
 def _process_training_program(db, item) -> None:
+    # Lazy imports to keep API startup fast on low-memory hosts.
+    from backend.core.pdf_utils import extract_text_from_pdf, chunk_text
+    from backend.core.quiz_logic import QuizGenerator, QuestionCache
+
     item.status = "processing"
     item.error_message = None
     item.question_count = 0
