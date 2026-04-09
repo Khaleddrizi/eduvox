@@ -217,7 +217,14 @@ def _process_training_program(db, item) -> None:
 
 def create_web_api() -> Flask:
     app = Flask(__name__)
-    CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001"], supports_credentials=True)
+    default_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+    ]
+    extra_origins = [o.strip() for o in (os.getenv("WEB_CORS_ORIGINS", "")).split(",") if o.strip()]
+    CORS(app, origins=default_origins + extra_origins, supports_credentials=True)
 
     def _decode_auth_identity() -> dict | None:
         auth_header = (request.headers.get("Authorization") or "").strip()
