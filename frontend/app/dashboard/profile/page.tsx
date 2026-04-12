@@ -258,7 +258,7 @@ function ParentProfilePageContent() {
     )
 
   return (
-    <div className="max-w-6xl">
+    <div className="max-w-6xl min-w-0 w-full">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white md:text-3xl">Profile & Security</h1>
         <p className="text-sm text-muted-foreground mt-1">Manage your parent account, password, and linked children.</p>

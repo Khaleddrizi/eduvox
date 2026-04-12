@@ -194,7 +194,7 @@ function DoctorPortalContent() {
   }
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="min-w-0 p-6 md:p-8">
       <div className="mb-8">
         <h1 className="text-[22px] font-semibold text-gray-900 dark:text-white">Dashboard</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">Overview of all patients and attention alerts</p>
@@ -275,6 +275,7 @@ function DoctorPortalContent() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
+            <div className="min-w-0 overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-200 dark:border-slate-700 hover:bg-transparent">
@@ -397,6 +398,7 @@ function DoctorPortalContent() {
                 )}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
     </div>

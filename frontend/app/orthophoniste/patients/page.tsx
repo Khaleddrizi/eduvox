@@ -232,7 +232,7 @@ function PatientsPage() {
   }).length
 
   return (
-    <div>
+    <div className="min-w-0">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
         <div>
           <Link href="/orthophoniste" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary mb-3">
@@ -333,6 +333,7 @@ function PatientsPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
+          <div className="min-w-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -477,6 +478,7 @@ function PatientsPage() {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

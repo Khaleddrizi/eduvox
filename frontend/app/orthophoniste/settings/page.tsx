@@ -168,7 +168,7 @@ function SettingsPage() {
   const doctorName = profile.full_name || "Orthophoniste"
 
   return (
-    <div>
+    <div className="min-w-0">
       <Link href="/orthophoniste" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary mb-6">
         <ArrowLeft className="h-4 w-4" /> Back to Patients
       </Link>
