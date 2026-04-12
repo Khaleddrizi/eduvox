@@ -24,11 +24,6 @@ if __name__ == "__main__":
     # and bind to the required external port.
     render_port = os.getenv("PORT")
     print(f"[startup] PORT={render_port!r}", flush=True)
-    from backend.database.connection import init_db
-    print("[startup] Initializing database...", flush=True)
-    init_db()
-    print("[startup] Database tables initialized.", flush=True)
-    
     if render_port:
         from backend.api.web_api import create_web_api
 
