@@ -7,7 +7,7 @@
  * (then configure CORS on the backend).
  */
 export const publicApiBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "")
-const API_BASE = ""
+const API_BASE = publicApiBase
 
 export type AuthRole = "specialist" | "parent" | "administration"
 
@@ -41,8 +41,18 @@ export async function login(
     credentials: "include",
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || "Login failed")
+    const parsed = (await res.json().catch(() => ({}))) as { error?: string }
+    if (parsed.error) {
+      throw new Error(parsed.error)
+    }
+    if (res.status === 502 || res.status === 503) {
+      throw new Error(
+        `Server unreachable (${res.status}). Check BACKEND_API_URL on Vercel and that Render is Live.`,
+      )
+    }
+    throw new Error(
+      `Login failed (${res.status}). If you renamed the backend, set BACKEND_API_URL to the new Render URL and redeploy Vercel.`,
+    )
   }
   return res.json()
 }
