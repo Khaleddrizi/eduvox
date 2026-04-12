@@ -1,8 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { Suspense, useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,8 +13,9 @@ import { CheckCircle, AlertCircle } from "lucide-react"
 import { register, toAccountType, type AuthRole } from "@/lib/api"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
-export default function RegisterPage() {
+function RegisterPageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [formData, setFormData] = useState({
     full_name: "",
     email: "",
@@ -23,6 +24,13 @@ export default function RegisterPage() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  useEffect(() => {
+    const r = searchParams.get("role")
+    if (r === "specialist" || r === "parent" || r === "administration") {
+      setFormData((prev) => ({ ...prev, role: r as AuthRole }))
+    }
+  }, [searchParams])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.id]: e.target.value })
@@ -134,5 +142,19 @@ export default function RegisterPage() {
         </CardFooter>
       </Card>
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="app-shell flex min-h-[40vh] items-center justify-center px-4 text-sm text-muted-foreground">
+          Loading…
+        </div>
+      }
+    >
+      <RegisterPageInner />
+    </Suspense>
   )
 }

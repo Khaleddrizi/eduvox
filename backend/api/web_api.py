@@ -448,6 +448,8 @@ def create_web_api() -> Flask:
                     "age": c.age,
                     "diagnostic": c.diagnostic,
                     "alexa_code": c.alexa_code,
+                    "parent_id": c.parent_id,
+                    "specialist_id": c.specialist_id,
                     "created_at": c.created_at.isoformat() if c.created_at else None,
                     "doctor_name": doctor.full_name or doctor.email if doctor else "—",
                     "parent_name": parent.full_name or parent.email if parent else "—",
