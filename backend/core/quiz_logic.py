@@ -16,15 +16,16 @@ ALEXA_INTROS_NEXT = ["Next question. ", "Here's the next one. "]
 class QuizGenerator:
     """Generate MCQ questions from text via the Groq API."""
 
-    def __init__(self, api_key: str, model: str = "llama-3.3-70b-versatile"):
+    def __init__(self, api_key: str, model: str = "llama-3.3-70b-versatile", timeout_seconds: float = 25.0):
         self._api_key = api_key
         self._model = model
+        self._timeout_seconds = timeout_seconds
         self._client = None
 
     def _get_client(self):
         if self._client is None:
             from groq import Groq
-            self._client = Groq(api_key=self._api_key)
+            self._client = Groq(api_key=self._api_key, timeout=self._timeout_seconds)
         return self._client
 
     def generate(self, context: str) -> Dict[str, Any] | None:
@@ -52,7 +53,7 @@ Correct: [A or B or C]
             correct = match.group(1).strip().upper()
             clean = re.sub(r"Correct:.*", "", text, flags=re.DOTALL).strip()
             if "main goal" in clean.lower() or "purpose of" in clean.lower():
-                return self.generate(context)
+                return None
             options = self._parse_options(clean)
             intro = random.choice(ALEXA_INTROS_FIRST)
             return {"question": f"{intro}{clean}", "question_body": clean, "options": options, "correct": correct}
