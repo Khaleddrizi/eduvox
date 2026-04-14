@@ -20,7 +20,7 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 from backend.database.connection import get_db
 from backend.config import DATA_DIR, QUESTION_CACHE_PATH, CHUNK_SIZE, CHUNK_OVERLAP, GROQ_API_KEY
-from backend.database.models import QuizSessionModel, PatientModel, ParentModel, SpecialistModel, AdministratorModel, UserModel, QuestionModel, AuditLogModel
+from backend.database.models import QuizSessionModel, PatientModel, ParentModel, SpecialistModel, AdministratorModel, UserModel, QuestionModel, AuditLogModel, TrainingProgramModel
 from backend.database.repositories import (
     SpecialistRepository,
     ParentRepository,
@@ -35,6 +35,7 @@ logger = logging.getLogger("AlexaQuiz.WebAPI")
 AUTH_TOKEN_MAX_AGE_SECONDS = int(os.getenv("AUTH_TOKEN_MAX_AGE_SECONDS", str(14 * 24 * 3600)))
 AUTH_TOKEN_SECRET = os.getenv("WEB_API_AUTH_SECRET", "adhd-assist-dev-secret-change-in-prod")
 _token_serializer = URLSafeTimedSerializer(AUTH_TOKEN_SECRET, salt="web-api-auth")
+PROCESSING_STALE_MINUTES = int(os.getenv("PROGRAM_PROCESSING_STALE_MINUTES", "20"))
 
 
 def _verify_password(stored_hash: str, password: str) -> bool:
@@ -226,7 +227,32 @@ def _process_training_program_async(item_id: int) -> None:
             _process_training_program(db, item)
             db.commit()
     except Exception as exc:
+        try:
+            with get_db() as db2:
+                repo2 = TrainingProgramRepository(db2)
+                item2 = repo2.get_by_id(item_id)
+                if item2 and item2.status == "processing":
+                    item2.status = "failed"
+                    item2.error_message = "Background processing crashed. Please retry processing."
+                    db2.commit()
+        except Exception:
+            pass
         logger.exception("Async processing failed for program %s: %s", item_id, exc)
+
+
+def _mark_stale_processing_programs(db, specialist_id: int | None = None) -> None:
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=PROCESSING_STALE_MINUTES)
+    q = db.query(TrainingProgramModel).filter(TrainingProgramModel.status == "processing")
+    if specialist_id is not None:
+        q = q.filter(TrainingProgramModel.specialist_id == specialist_id)
+    stale_items = q.filter(TrainingProgramModel.created_at < cutoff).all()
+    if not stale_items:
+        return
+    for item in stale_items:
+        item.status = "failed"
+        item.error_message = "Processing timed out or was interrupted. Please click Retry Processing."
+        item.question_count = 0
+    db.flush()
 
 
 def create_web_api() -> Flask:
@@ -1108,6 +1134,8 @@ def create_web_api() -> Flask:
         if not sid:
             return _auth_required()
         with get_db() as db:
+            _mark_stale_processing_programs(db, specialist_id=sid)
+            db.commit()
             repo = TrainingProgramRepository(db)
             return jsonify(repo.get_by_specialist(sid))
 

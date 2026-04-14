@@ -97,6 +97,14 @@ function LibraryPage() {
     loadItems()
   }, [])
 
+  useEffect(() => {
+    if (!items.some((item) => item.status === "processing")) return
+    const timer = window.setInterval(() => {
+      loadItems()
+    }, 8000)
+    return () => window.clearInterval(timer)
+  }, [items])
+
   const filteredItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     if (!q) return items
