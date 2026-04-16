@@ -7,11 +7,13 @@ const nextConfig = {
     unoptimized: true,
   },
   async rewrites() {
-    const apiUrl = (
+    const apiUrlRaw = (
       process.env.BACKEND_API_URL ||
       process.env.NEXT_PUBLIC_API_URL ||
       "http://localhost:5004"
-    ).replace(/\/$/, "")
+    )
+    // Avoid accidental "/api/api" when BACKEND_API_URL already includes "/api"
+    const apiUrl = apiUrlRaw.replace(/\/$/, "").replace(/\/api\/?$/i, "")
     return [{ source: "/api/:path*", destination: `${apiUrl}/api/:path*` }]
   },
 }
