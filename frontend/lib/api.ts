@@ -45,7 +45,8 @@ async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit | un
 
 async function fetchWithRetry(input: RequestInfo | URL, init: RequestInit, opts?: { retries?: number; timeoutMs?: number }) {
   const retries = opts?.retries ?? 2
-  const timeoutMs = opts?.timeoutMs ?? 20000
+  // Render Free can take longer on cold starts; avoid aborting the request too early.
+  const timeoutMs = opts?.timeoutMs ?? 60000
   let lastErr: unknown = null
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
