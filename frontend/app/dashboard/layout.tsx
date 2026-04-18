@@ -63,7 +63,7 @@ export default function ParentDashboardLayout({ children }: { children: React.Re
     <div className="p-6 border-b border-gray-200 dark:border-gray-700">
       <Link href="/dashboard" className="block min-w-0">
         <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-500">
-          ADHD Assist
+          EDUVOX
         </span>
         <p className="mt-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Parent Portal</p>
       </Link>
@@ -73,7 +73,7 @@ export default function ParentDashboardLayout({ children }: { children: React.Re
   const mobileBarTitle = (
     <div className="min-w-0">
       <span className="text-base font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-500 truncate block">
-        ADHD Assist
+        EDUVOX
       </span>
       <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground truncate">Parent Portal</p>
     </div>

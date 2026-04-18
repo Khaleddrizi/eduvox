@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const notoArabic = Noto_Sans_Arabic({ subsets: ["arabic"], variable: "--font-noto-arabic" })
 
 export const metadata = {
-  title: "ADHD Assist — مساعدة معرفية مدعومة بالذكاء الاصطناعي",
+  title: "EDUVOX — مساعدة معرفية مدعومة بالذكاء الاصطناعي",
   description:
     "منصة رقمية لدعم الأطفال المصابين باضطراب فرط الحركة وتشتت الانتباه (ADHD)، تجمع بين العلوم المعرفية والذكاء الاصطناعي والتفاعل اللطيف لتحسين التركيز والانتباه.",
     generator: 'v0.app'

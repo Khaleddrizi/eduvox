@@ -42,13 +42,13 @@ function RegisterPageInner() {
     setMessage(null)
 
     if (!formData.email || !formData.password) {
-      setMessage({ type: "error", text: "Please fill in all fields" })
+      setMessage({ type: "error", text: "يرجى تعبئة جميع الحقول" })
       setIsLoading(false)
       return
     }
 
     if (formData.password.length < 6) {
-      setMessage({ type: "error", text: "Password must be at least 6 characters" })
+      setMessage({ type: "error", text: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" })
       setIsLoading(false)
       return
     }
@@ -71,11 +71,11 @@ function RegisterPageInner() {
       }
       localStorage.setItem("adhdAssistCurrentUser", JSON.stringify(storedUser))
 
-      setMessage({ type: "success", text: "Account created! Redirecting..." })
+      setMessage({ type: "success", text: "تم إنشاء الحساب بنجاح! جاري التوجيه..." })
       const target = user.role === "specialist" ? "/orthophoniste" : user.role === "administration" ? "/administration" : "/dashboard"
       setTimeout(() => router.replace(target), 600)
     } catch (err) {
-      setMessage({ type: "error", text: err instanceof Error ? err.message : "Registration failed." })
+      setMessage({ type: "error", text: err instanceof Error ? err.message : "فشل إنشاء الحساب." })
     } finally {
       setIsLoading(false)
     }
@@ -86,9 +86,9 @@ function RegisterPageInner() {
       <Card className="surface-card w-full max-w-md border-border/70 shadow-xl">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-500">
-            Create Professional Account
+            إنشاء حساب مهني
           </CardTitle>
-          <CardDescription>Register as Doctor or Administration</CardDescription>
+          <CardDescription>سجّل كأخصائي أو كإدارة</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           {message && (
@@ -105,39 +105,46 @@ function RegisterPageInner() {
           <form onSubmit={handleSubmit}>
             <div className="grid gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="full_name">Full name</Label>
-                <Input id="full_name" placeholder="Dr. Jean Dupont" value={formData.full_name} onChange={handleInputChange} />
+                <Label htmlFor="full_name">الاسم الكامل</Label>
+                <Input id="full_name" placeholder="د. أحمد محمد" value={formData.full_name} onChange={handleInputChange} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">البريد الإلكتروني</Label>
                 <Input id="email" type="email" placeholder="professional@example.com" value={formData.email} onChange={handleInputChange} required />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" placeholder="Min. 6 characters" value={formData.password} onChange={handleInputChange} required />
+                <Label htmlFor="password">كلمة المرور</Label>
+                <Input id="password" type="password" placeholder="6 أحرف على الأقل" value={formData.password} onChange={handleInputChange} required />
               </div>
               <div className="grid gap-2">
-                <Label>Account type</Label>
-                <RadioGroup value={formData.role} onValueChange={(v) => setFormData({ ...formData, role: v as AuthRole })} className="flex gap-4">
+                <Label>نوع الحساب</Label>
+                <RadioGroup
+                  value={formData.role}
+                  onValueChange={(v) => setFormData({ ...formData, role: v as AuthRole })}
+                  className="flex flex-wrap gap-4"
+                >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="specialist" id="register-specialist" />
-                    <Label htmlFor="register-specialist" className="font-normal">Doctor</Label>
+                    <Label htmlFor="register-specialist" className="font-normal">أخصائي (طبيب)</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="administration" id="register-administration" />
-                    <Label htmlFor="register-administration" className="font-normal">Administration</Label>
+                    <Label htmlFor="register-administration" className="font-normal">إدارة</Label>
                   </div>
                 </RadioGroup>
               </div>
               <Button type="submit" className="w-full bg-gradient-to-r from-primary to-cyan-500 shadow-sm" disabled={isLoading}>
-                {isLoading ? "Creating..." : "Create account"}
+                {isLoading ? "جاري الإنشاء..." : "إنشاء الحساب"}
               </Button>
             </div>
           </form>
         </CardContent>
         <CardFooter>
           <p className="text-sm text-muted-foreground text-center w-full">
-            Already have an account? <Link href="/login" className="text-primary underline-offset-4 hover:underline">Login</Link>
+            لديك حساب بالفعل؟{" "}
+            <Link href="/login" className="text-primary underline-offset-4 hover:underline">
+              تسجيل الدخول
+            </Link>
           </p>
         </CardFooter>
       </Card>
@@ -150,7 +157,7 @@ export default function RegisterPage() {
     <Suspense
       fallback={
         <div className="app-shell flex min-h-[40vh] items-center justify-center px-4 text-sm text-muted-foreground">
-          Loading…
+          جاري التحميل…
         </div>
       }
     >

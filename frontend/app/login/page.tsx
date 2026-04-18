@@ -33,7 +33,7 @@ export default function LoginPage() {
     setMessage(null)
 
     if (!formData.email || !formData.password) {
-      setMessage({ type: "error", text: "Please fill in all fields" })
+      setMessage({ type: "error", text: "يرجى تعبئة جميع الحقول" })
       setIsLoading(false)
       return
     }
@@ -51,11 +51,11 @@ export default function LoginPage() {
       }
       localStorage.setItem("adhdAssistCurrentUser", JSON.stringify(storedUser))
 
-      setMessage({ type: "success", text: "Login successful! Redirecting..." })
+      setMessage({ type: "success", text: "تم تسجيل الدخول بنجاح! جاري التوجيه..." })
       const target = user.role === "specialist" ? "/orthophoniste" : user.role === "administration" ? "/administration" : "/dashboard"
       setTimeout(() => router.replace(target), 600)
     } catch (err) {
-      setMessage({ type: "error", text: err instanceof Error ? err.message : "Login failed." })
+      setMessage({ type: "error", text: err instanceof Error ? err.message : "فشل تسجيل الدخول." })
     } finally {
       setIsLoading(false)
     }
@@ -66,9 +66,9 @@ export default function LoginPage() {
       <Card className="surface-card w-full max-w-md border-border/70 shadow-xl">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-500">
-            Login
+            تسجيل الدخول
           </CardTitle>
-          <CardDescription>Enter your credentials</CardDescription>
+          <CardDescription>أدخل بياناتك للوصول إلى حسابك</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           {message && (
@@ -85,43 +85,46 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit}>
             <div className="grid gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">البريد الإلكتروني</Label>
                 <Input id="email" type="email" placeholder="example@domain.com" value={formData.email} onChange={handleInputChange} required />
               </div>
               <div className="grid gap-2">
-                <Label>Account type</Label>
+                <Label>نوع الحساب</Label>
                 <RadioGroup
                   value={formData.role}
                   onValueChange={(v) => setFormData({ ...formData, role: v as AuthRole })}
-                  className="flex gap-4"
+                  className="flex flex-wrap gap-4"
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="specialist" id="specialist" />
-                    <Label htmlFor="specialist" className="font-normal">Doctor</Label>
+                    <Label htmlFor="specialist" className="font-normal">أخصائي (طبيب)</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="parent" id="parent" />
-                    <Label htmlFor="parent" className="font-normal">Parent</Label>
+                    <Label htmlFor="parent" className="font-normal">ولي أمر</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="administration" id="administration" />
-                    <Label htmlFor="administration" className="font-normal">Administration</Label>
+                    <Label htmlFor="administration" className="font-normal">إدارة</Label>
                   </div>
                 </RadioGroup>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">كلمة المرور</Label>
                 <Input id="password" type="password" value={formData.password} onChange={handleInputChange} required />
               </div>
               <Button type="submit" className="w-full bg-gradient-to-r from-primary to-cyan-500 shadow-sm" disabled={isLoading}>
-                {isLoading ? "Logging in..." : "Login"}
+                {isLoading ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}
               </Button>
             </div>
           </form>
         </CardContent>
         <CardFooter>
           <p className="text-sm text-muted-foreground text-center w-full">
-            Need a professional account? <Link href="/register" className="text-primary underline-offset-4 hover:underline">Create account</Link>
+            ليس لديك حساب مهني؟{" "}
+            <Link href="/register" className="text-primary underline-offset-4 hover:underline">
+              إنشاء حساب مهني
+            </Link>
           </p>
         </CardFooter>
       </Card>

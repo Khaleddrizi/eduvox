@@ -55,9 +55,9 @@ export default function OrthophonisteLayout({ children }: { children: React.Reac
   const sidebarHeader = (
     <div className="p-6 border-b border-gray-200 dark:border-gray-700">
       <Link href="/" className="flex items-center gap-2 min-w-0">
-        <Image src="/adhd-logo.png" alt="ADHD Assist" width={32} height={32} className="rounded-md shrink-0" />
+        <Image src="/adhd-logo.png" alt="EDUVOX" width={32} height={32} className="rounded-md shrink-0" />
         <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-500 truncate">
-          ADHD Assist
+          EDUVOX
         </span>
       </Link>
     </div>
@@ -65,7 +65,7 @@ export default function OrthophonisteLayout({ children }: { children: React.Reac
 
   const mobileBarTitle = (
     <span className="text-base font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-500 truncate block">
-      ADHD Assist
+      EDUVOX
     </span>
   )
 

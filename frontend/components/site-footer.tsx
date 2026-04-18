@@ -8,7 +8,7 @@ export function SiteFooter() {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           <div className="space-y-4">
             <h3 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-500">
-              ADHD Assist
+              EDUVOX
             </h3>
             <p className="text-sm text-muted-foreground">
               منصة دعم معرفي مبتكرة للأطفال المصابين بـ ADHD، بإشراف مهني ومسارات تفاعلية واضحة.
@@ -87,7 +87,7 @@ export function SiteFooter() {
             <ul className="space-y-2 text-sm">
               <li className="flex items-center gap-2 text-muted-foreground">
                 <Mail size={16} className="text-primary" />
-                <span>contact@adhdassist.com</span>
+                <span>contact@eduvox.com</span>
               </li>
               <li className="flex items-center gap-2 text-muted-foreground">
                 <Phone size={16} className="text-primary" />
@@ -106,7 +106,7 @@ export function SiteFooter() {
         </div>
         <div className="mt-8 border-t pt-8">
           <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-            <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} ADHD Assist. جميع الحقوق محفوظة.</p>
+            <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} EDUVOX. جميع الحقوق محفوظة.</p>
             <div className="flex gap-4 text-xs text-muted-foreground">
               <Link href="#" className="hover:text-primary transition-colors duration-200">
                 من نحن

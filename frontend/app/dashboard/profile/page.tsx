@@ -322,7 +322,7 @@ function ParentProfilePageContent() {
                       </div>
                       <div className="min-w-0">
                         <p className="text-[15px] font-bold text-slate-900 dark:text-white truncate">{parentDisplayName}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">Parent · ADHD Assist Portal</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Parent · EDUVOX Portal</p>
                       </div>
                     </div>
                     <Button

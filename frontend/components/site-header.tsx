@@ -14,9 +14,9 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <Image src="/adhd-logo.png" alt="ADHD Assist" width={40} height={40} className="rounded-md" />
+          <Image src="/adhd-logo.png" alt="EDUVOX" width={40} height={40} className="rounded-md" />
           <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-500">
-            ADHD Assist
+            EDUVOX
           </span>
         </Link>
 
@@ -29,7 +29,7 @@ export function SiteHeader() {
           </Link>
           <Link href="/register">
             <Button className="bg-gradient-to-r from-primary to-cyan-500 hover:from-primary/90 hover:to-cyan-500/90 transition-all duration-300">
-              انضم كمختص
+              إنشاء حساب مهني
             </Button>
           </Link>
         </nav>
@@ -49,7 +49,7 @@ export function SiteHeader() {
               <Button variant="outline" className="w-full">تسجيل الدخول</Button>
             </Link>
             <Link href="/register" className="block py-2">
-              <Button className="w-full bg-gradient-to-r from-primary to-cyan-500">انضم كمختص</Button>
+              <Button className="w-full bg-gradient-to-r from-primary to-cyan-500">إنشاء حساب مهني</Button>
             </Link>
           </div>
         </div>

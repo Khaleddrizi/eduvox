@@ -45,7 +45,7 @@ export default function LandingPage() {
                 دعم معرفي مخصص لاضطراب فرط الحركة وتشتت الانتباه
               </div>
               <h1 className="text-3xl font-bold leading-tight tracking-tighter md:text-4xl lg:text-5xl lg:leading-[1.1] bg-clip-text text-transparent bg-gradient-to-r from-primary via-cyan-500 to-teal-500">
-                ADHD Assist — مساعدة ذكية عبر الصوت والذكاء الاصطناعي
+                EDUVOX — مساعدة ذكية عبر الصوت والذكاء الاصطناعي
               </h1>
               <p className="text-lg text-muted-foreground md:text-xl">
                 منصة رقمية تجمع بين المتابعة المهنية، التمارين التفاعلية، والمساعد الصوتي لدعم التركيز والانتباه
