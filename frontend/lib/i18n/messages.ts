@@ -3,6 +3,7 @@
  * usePortalT() prefixes sp./pa. automatically except for keys starting with "common.".
  */
 import type { AppLocale } from "./types"
+import { PORTAL_PAGES_AR, PORTAL_PAGES_EN } from "./messages-portal-pages"
 
 export type MessageTable = Record<string, string>
 
@@ -20,6 +21,24 @@ const ar: MessageTable = {
   "common.specialist": "مختص",
   "common.parent": "ولي أمر",
   "common.eduvoxPortal": "بوابة EDUVOX",
+  "common.severityMild": "خفيف",
+  "common.severityModerate": "متوسط",
+  "common.severitySevere": "شديد",
+  "common.noLevel": "بدون مستوى",
+  "common.noPhone": "لا هاتف",
+  "common.notAssigned": "غير معيّن",
+  "common.copy": "نسخ",
+  "common.browse": "تصفح",
+  "common.exportCsv": "تصدير CSV",
+  "common.exportPdf": "تصدير PDF",
+  "common.sessions": "جلسات",
+  "common.questions": "أسئلة",
+  "common.accuracy": "الدقة",
+  "common.duration": "المدة",
+  "common.date": "التاريخ",
+  "common.score": "النتيجة",
+  "common.child": "الطفل",
+  "common.yesterdayLabel": "أمس",
 
   "sp.layout.nav.home": "الرئيسية",
   "sp.layout.nav.patients": "المرضى",
@@ -271,6 +290,7 @@ const ar: MessageTable = {
   "pa.settings.langFr": "Français",
   "pa.settings.langEn": "English",
   "pa.settings.roleBadge": "ولي أمر · بوابة EDUVOX",
+  ...PORTAL_PAGES_AR,
 }
 
 const en: MessageTable = {
@@ -287,6 +307,24 @@ const en: MessageTable = {
   "common.specialist": "Specialist",
   "common.parent": "Parent",
   "common.eduvoxPortal": "EDUVOX portal",
+  "common.severityMild": "Mild",
+  "common.severityModerate": "Moderate",
+  "common.severitySevere": "Severe",
+  "common.noLevel": "No level set",
+  "common.noPhone": "No phone",
+  "common.notAssigned": "Not assigned",
+  "common.copy": "Copy",
+  "common.browse": "Browse",
+  "common.exportCsv": "Export CSV",
+  "common.exportPdf": "Export PDF",
+  "common.sessions": "Sessions",
+  "common.questions": "Questions",
+  "common.accuracy": "Accuracy",
+  "common.duration": "Duration",
+  "common.date": "Date",
+  "common.score": "Score",
+  "common.child": "Child",
+  "common.yesterdayLabel": "Yesterday",
 
   "sp.layout.nav.home": "Home",
   "sp.layout.nav.patients": "Patients",
@@ -539,6 +577,7 @@ const en: MessageTable = {
   "pa.settings.langFr": "Français",
   "pa.settings.langEn": "English",
   "pa.settings.roleBadge": "Parent · EDUVOX portal",
+  ...PORTAL_PAGES_EN,
 }
 
 const fr: MessageTable = {

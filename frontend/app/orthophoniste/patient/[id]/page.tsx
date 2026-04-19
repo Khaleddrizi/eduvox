@@ -21,7 +21,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { fetchApi } from "@/lib/api"
-import { UserRound, Users, Mail, Phone, Activity, Brain, Pencil, Wand2, Info, Download, CalendarDays, Gauge, Clock3 } from "lucide-react"
+import { usePortalI18n } from "@/lib/i18n/i18n-context"
+import { readLocaleFromStorage, resolveMessage } from "@/lib/i18n/messages"
+import type { AppLocale } from "@/lib/i18n/types"
+import { UserRound, Users, Mail, Phone, Activity, Pencil, Wand2, Info, Download, CalendarDays, Gauge, Clock3 } from "lucide-react"
 import { toast } from "sonner"
 
 interface PatientDetails {
@@ -74,9 +77,15 @@ interface TrainingProgram {
   question_count: number
 }
 
-function formatDateTime(value: string | null | undefined) {
+function localeTag(loc: AppLocale) {
+  if (loc === "ar") return "ar"
+  if (loc === "fr") return "fr-FR"
+  return "en-US"
+}
+
+function formatDateTime(value: string | null | undefined, locale: AppLocale) {
   if (!value) return "—"
-  return new Date(value).toLocaleString()
+  return new Date(value).toLocaleString(localeTag(locale))
 }
 
 function getStatus(score: number, totalSessions: number) {
@@ -85,14 +94,30 @@ function getStatus(score: number, totalSessions: number) {
   return "on_track" as const
 }
 
-function getStatusChip(status: ReturnType<typeof getStatus>) {
+function getStatusChip(status: ReturnType<typeof getStatus>, t: (key: string) => string) {
   const config = {
-    on_track: "bg-emerald-100 text-emerald-700",
-    monitor: "bg-amber-100 text-amber-700",
-    needs_attention: "bg-red-100 text-red-700",
+    on_track: { cls: "bg-emerald-100 text-emerald-700", key: "status.onTrack" },
+    monitor: { cls: "bg-amber-100 text-amber-700", key: "status.monitor" },
+    needs_attention: { cls: "bg-red-100 text-red-700", key: "status.needsAttention" },
   }
-  const label = status === "on_track" ? "على المسار" : status === "monitor" ? "مراقبة" : "يحتاج انتباهًا"
-  return <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${config[status]}`}>{label}</span>
+  const c = config[status]
+  return (
+    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${c.cls}`}>{t(c.key)}</span>
+  )
+}
+
+function diagnosticLabel(diagnostic: string | null | undefined, t: (key: string) => string) {
+  if (diagnostic === "Mild") return t("common.severityMild")
+  if (diagnostic === "Moderate") return t("common.severityModerate")
+  if (diagnostic === "Severe") return t("common.severitySevere")
+  return t("common.noLevel")
+}
+
+function programStatusLabel(status: string, t: (key: string) => string) {
+  if (status === "ready") return t("library.statusReady")
+  if (status === "processing") return t("library.statusProcessing")
+  if (status === "failed") return t("library.statusFailed")
+  return status
 }
 
 function severityChip(level: string | null | undefined) {
@@ -109,6 +134,7 @@ function initials(name: string | null | undefined) {
 }
 
 function PatientDetailsPageContent() {
+  const { t, locale } = usePortalI18n()
   const params = useParams<{ id: string }>()
   const patientId = params?.id
   const [patient, setPatient] = useState<PatientDetails | null>(null)
@@ -137,7 +163,12 @@ function PatientDetailsPageContent() {
         setSessions(sessionsData)
         setPrograms(programsData.filter((program) => program.status === "ready"))
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "تعذّر تحميل تفاصيل المريض")
+        if (!cancelled) {
+          const loc = readLocaleFromStorage("specialist")
+          setError(
+            err instanceof Error ? err.message : resolveMessage(loc, "specialist", "patientDetail.loadError"),
+          )
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -159,9 +190,13 @@ function PatientDetailsPageContent() {
         }),
       })
       setPatient(updated)
-      toast.success(selectedProgramValue === "none" ? "تمت إزالة البرنامج عن المريض" : "تم تعيين البرنامج للمريض")
+      toast.success(
+        selectedProgramValue === "none" ? t("patientDetail.toastProgramRemoved") : t("patientDetail.toastProgramSet"),
+      )
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "تعذّر تعيين البرنامج")
+      toast.error(
+        err instanceof Error ? err.message : resolveMessage(readLocaleFromStorage("specialist"), "specialist", "patientDetail.toastProgramErr"),
+      )
     } finally {
       setAssigningProgram(false)
     }
@@ -169,10 +204,24 @@ function PatientDetailsPageContent() {
 
   const exportSessionsCsv = () => {
     if (!sessions.length) return
-    const rows = [["التاريخ", "النتيجة", "إجمالي الأسئلة", "الدقة", "المدة"]]
+    const rows = [
+      [
+        t("patientDetail.csvHeaderDate"),
+        t("patientDetail.csvHeaderScore"),
+        t("patientDetail.csvHeaderTotal"),
+        t("patientDetail.csvHeaderAccuracy"),
+        t("patientDetail.csvHeaderDuration"),
+      ],
+    ]
     for (const s of sessions) {
       const duration = `${Math.max(1, s.total_questions) * 20}s`
-      rows.push([formatDateTime(s.created_at), String(s.score), String(s.total_questions), `${s.accuracy_pct}%`, duration])
+      rows.push([
+        formatDateTime(s.created_at, locale),
+        String(s.score),
+        String(s.total_questions),
+        `${s.accuracy_pct}%`,
+        duration,
+      ])
     }
     const csv = rows.map((r) => r.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(",")).join("\n")
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
@@ -187,11 +236,11 @@ function PatientDetailsPageContent() {
   return (
     <div>
       {loading ? (
-        <p className="text-sm text-muted-foreground">جاري تحميل تفاصيل المريض…</p>
+        <p className="text-sm text-muted-foreground">{t("patientDetail.loading")}</p>
       ) : error || !patient ? (
         <Card>
           <CardContent className="py-10 text-center text-muted-foreground">
-            {error || "لم يُعثر على المريض."}
+            {error || t("patientDetail.notFound")}
           </CardContent>
         </Card>
       ) : (
@@ -205,9 +254,16 @@ function PatientDetailsPageContent() {
                 <div>
                   <h1 className="text-[20px] font-bold text-slate-900 dark:text-white">{patient.name}</h1>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-blue-50 text-blue-700 px-2.5 py-1 text-xs font-medium">{patient.age != null ? `${patient.age} سنة` : "—"}</span>
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${severityChip(patient.diagnostic)}`}>{patient.diagnostic || "بدون مستوى"}</span>
-                    {getStatusChip(getStatus(Math.round(patient.stats?.avg_accuracy ?? 0), patient.stats?.total_sessions ?? 0))}
+                    <span className="rounded-full bg-blue-50 text-blue-700 px-2.5 py-1 text-xs font-medium">
+                      {patient.age != null ? `${patient.age} ${t("common.age")}` : "—"}
+                    </span>
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${severityChip(patient.diagnostic)}`}>
+                      {diagnosticLabel(patient.diagnostic, t)}
+                    </span>
+                    {getStatusChip(
+                      getStatus(Math.round(patient.stats?.avg_accuracy ?? 0), patient.stats?.total_sessions ?? 0),
+                      t,
+                    )}
                     <code className="rounded-full bg-slate-100 text-slate-700 px-2.5 py-1 text-xs font-mono">{patient.alexa_code || "—"}</code>
                   </div>
                 </div>
@@ -215,11 +271,11 @@ function PatientDetailsPageContent() {
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" className="text-xs px-[14px] py-[7px]">
                   <Pencil className="h-3.5 w-3.5 mr-1.5" />
-                  تعديل المريض
+                  {t("patientDetail.edit")}
                 </Button>
                 <Button size="sm" className="text-xs px-[14px] py-[7px]">
                   <Wand2 className="h-3.5 w-3.5 mr-1.5" />
-                  تعيين برنامج
+                  {t("patientDetail.assignProgram")}
                 </Button>
               </div>
             </div>
@@ -230,27 +286,29 @@ function PatientDetailsPageContent() {
               <CardHeader className="border-b border-slate-200/70 dark:border-slate-700/70">
                 <CardTitle className="flex items-center gap-2 text-[13px] font-bold">
                   <span className="h-7 w-7 rounded-md bg-[#EBF5FE] text-[#1a8fe3] inline-flex items-center justify-center"><UserRound className="h-4 w-4" /></span>
-                  معلومات المريض
+                  {t("patientDetail.infoTitle")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-0 text-sm">
                 <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-[12px] text-muted-foreground">العمر</span>
-                  <span className="text-[12px] font-semibold">{patient.age != null ? `${patient.age} سنة` : "—"}</span>
-                </div>
-                <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-[12px] text-muted-foreground">مستوى ADHD</span>
-                  <span className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${severityChip(patient.diagnostic)}`}>
-                    {patient.diagnostic || "—"}
+                  <span className="text-[12px] text-muted-foreground">{t("patientDetail.age")}</span>
+                  <span className="text-[12px] font-semibold">
+                    {patient.age != null ? `${patient.age} ${t("common.age")}` : "—"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-[12px] text-muted-foreground">رمز الطفل</span>
+                  <span className="text-[12px] text-muted-foreground">{t("patientDetail.adhdLevel")}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${severityChip(patient.diagnostic)}`}>
+                    {patient.diagnostic ? diagnosticLabel(patient.diagnostic, t) : "—"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-[12px] text-muted-foreground">{t("patientDetail.childCode")}</span>
                   <code className="rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[12px] font-mono">{patient.alexa_code || "—"}</code>
                 </div>
                 <div className="flex items-center justify-between py-2">
-                  <span className="text-[12px] text-muted-foreground">تاريخ الإنشاء</span>
-                  <span className="text-[12px] font-semibold">{formatDateTime(patient.created_at)}</span>
+                  <span className="text-[12px] text-muted-foreground">{t("patientDetail.created")}</span>
+                  <span className="text-[12px] font-semibold">{formatDateTime(patient.created_at, locale)}</span>
                 </div>
               </CardContent>
             </Card>
@@ -259,7 +317,7 @@ function PatientDetailsPageContent() {
               <CardHeader className="border-b border-slate-200/70 dark:border-slate-700/70">
                 <CardTitle className="flex items-center gap-2 text-[13px] font-bold">
                   <span className="h-7 w-7 rounded-md bg-[#EBF5FE] text-[#1a8fe3] inline-flex items-center justify-center"><Wand2 className="h-4 w-4" /></span>
-                  البرنامج التدريبي المعيّن
+                  {t("patientDetail.programTitle")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 text-sm">
@@ -269,37 +327,37 @@ function PatientDetailsPageContent() {
                   disabled={assigningProgram}
                 >
                   <SelectTrigger className="bg-[#f9fafb] border-slate-300">
-                    <SelectValue placeholder="اختر برنامجًا جاهزًا" />
+                    <SelectValue placeholder={t("patientDetail.programPh")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">لا برنامج معيّن</SelectItem>
+                    <SelectItem value="none">{t("patientDetail.programNone")}</SelectItem>
                     {programs.map((program) => (
                       <SelectItem key={program.id} value={String(program.id)}>
-                        {program.name} ({program.question_count} questions)
+                        {program.name} ({program.question_count} {t("common.questions")})
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <div className="inline-flex items-start gap-2 text-xs text-muted-foreground">
                   <Info className="h-3.5 w-3.5 mt-0.5" />
-                  <span>اختر البرنامج الجاهز الذي تستخدمه أليكسا لهذا المريض.</span>
+                  <span>{t("patientDetail.programHint")}</span>
                 </div>
                 <Button className="w-full" onClick={handleAssignProgram} disabled={assigningProgram}>
                   <Wand2 className="h-4 w-4 mr-2" />
-                  {assigningProgram ? "جاري التعيين…" : "تعيين البرنامج"}
+                  {assigningProgram ? t("patientDetail.assigning") : t("patientDetail.assignBtn")}
                 </Button>
 
                 {patient.assigned_program ? (
                   <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
                     <p className="font-medium">{patient.assigned_program.name}</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      الحالة: {patient.assigned_program.status} • الأسئلة: {patient.assigned_program.question_count}
+                      {t("patientDetail.programMeta")
+                        .replace("{status}", programStatusLabel(patient.assigned_program.status, t))
+                        .replace("{n}", String(patient.assigned_program.question_count))}
                     </p>
                   </div>
                 ) : (
-                  <p className="text-muted-foreground">
-                    لن تبدأ أليكسا اختبارًا لهذا المريض حتى يُعيَّن برنامج جاهز.
-                  </p>
+                  <p className="text-muted-foreground">{t("patientDetail.noProgramHint")}</p>
                 )}
               </CardContent>
             </Card>
@@ -308,29 +366,31 @@ function PatientDetailsPageContent() {
               <CardHeader className="border-b border-slate-200/70 dark:border-slate-700/70">
                 <CardTitle className="flex items-center gap-2 text-[13px] font-bold">
                   <span className="h-7 w-7 rounded-md bg-[#EBF5FE] text-[#1a8fe3] inline-flex items-center justify-center"><Users className="h-4 w-4" /></span>
-                  معلومات ولي الأمر
+                  {t("patientDetail.parentTitle")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <div className="flex items-center gap-3">
                   <div className="h-[34px] w-[34px] rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-xs font-semibold">
-                    {initials(patient.parent?.full_name || "ولي أمر")}
+                    {initials(patient.parent?.full_name || t("common.parent"))}
                   </div>
                   <div>
-                    <p className="font-semibold text-slate-900 dark:text-white">{patient.parent?.full_name || "ولي أمر"}</p>
-                    <p className="text-xs text-muted-foreground">ولي أمر مرتبط</p>
+                    <p className="font-semibold text-slate-900 dark:text-white">
+                      {patient.parent?.full_name || t("common.parent")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{t("patientDetail.parentLinked")}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span>{patient.parent?.email || "لا ولي أمر مرتبط"}</span>
+                  <span>{patient.parent?.email || t("patientDetail.noParentEmail")}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Phone className="h-4 w-4 text-muted-foreground" />
                   {patient.parent?.phone ? (
                     <span>{patient.parent.phone}</span>
                   ) : (
-                    <span className="italic text-slate-400">لا رقم هاتف</span>
+                    <span className="italic text-slate-400">{t("patientDetail.noPhone")}</span>
                   )}
                 </div>
               </CardContent>
@@ -340,18 +400,22 @@ function PatientDetailsPageContent() {
           <div className="grid gap-4 sm:gap-6 md:grid-cols-3">
             <Card className="surface-card">
               <CardHeader className="pb-3">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1"><Activity className="h-3.5 w-3.5" /> إجمالي الجلسات</p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1">
+                  <Activity className="h-3.5 w-3.5" /> {t("patientDetail.kpiSessions")}
+                </p>
               </CardHeader>
               <CardContent>
                 <p className={`text-3xl font-bold ${(patient.stats?.total_sessions ?? 0) === 0 ? "text-[#d1d5db]" : "text-slate-900 dark:text-white"}`}>
                   {patient.stats?.total_sessions ?? 0}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">كل جلسات الاختبار المكتملة</p>
+                <p className="text-xs text-muted-foreground mt-1">{t("patientDetail.kpiSessionsHint")}</p>
               </CardContent>
             </Card>
             <Card className="surface-card">
               <CardHeader className="pb-3">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1"><Gauge className="h-3.5 w-3.5" /> متوسط الدقة</p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1">
+                  <Gauge className="h-3.5 w-3.5" /> {t("patientDetail.kpiAccuracy")}
+                </p>
               </CardHeader>
               <CardContent>
                 {(() => {
@@ -363,7 +427,7 @@ function PatientDetailsPageContent() {
                       <div className="mt-2 h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
                         <div className={`h-full ${barColor}`} style={{ width: `${avg}%` }} />
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">اتجاه الأداء العام</p>
+                      <p className="text-xs text-muted-foreground mt-1">{t("patientDetail.kpiAccuracyHint")}</p>
                     </>
                   )
                 })()}
@@ -371,7 +435,9 @@ function PatientDetailsPageContent() {
             </Card>
             <Card className="surface-card">
               <CardHeader className="pb-3">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" /> آخر جلسة</p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1">
+                  <Clock3 className="h-3.5 w-3.5" /> {t("patientDetail.kpiLast")}
+                </p>
               </CardHeader>
               <CardContent>
                 {patient.last_session ? (
@@ -379,12 +445,14 @@ function PatientDetailsPageContent() {
                     <p className="text-3xl font-bold text-slate-900 dark:text-white">
                       {patient.last_session.score}/{patient.last_session.total_questions}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">{formatDateTime(patient.last_session?.created_at)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatDateTime(patient.last_session?.created_at, locale)}
+                    </p>
                   </>
                 ) : (
                   <>
-                    <p className="text-sm italic text-muted-foreground">لا توجد جلسات بعد</p>
-                    <p className="text-xs text-muted-foreground mt-1">ستظهر تفاصيل الجلسات هنا</p>
+                    <p className="text-sm italic text-muted-foreground">{t("patientDetail.noSessionsYet")}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t("patientDetail.noSessionsHint")}</p>
                   </>
                 )}
               </CardContent>
@@ -405,11 +473,21 @@ function PatientDetailsPageContent() {
               <Table>
                 <TableHeader className="bg-slate-50/80 dark:bg-slate-900/40">
                   <TableRow>
-                    <TableHead className="text-[10px] uppercase tracking-wider text-slate-400">التاريخ</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wider text-slate-400">النتيجة</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wider text-slate-400">إجمالي الأسئلة</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wider text-slate-400">الدقة</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wider text-slate-400">المدة</TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-wider text-slate-400">
+                      {t("patientDetail.csvHeaderDate")}
+                    </TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-wider text-slate-400">
+                      {t("patientDetail.csvHeaderScore")}
+                    </TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-wider text-slate-400">
+                      {t("patientDetail.csvHeaderTotal")}
+                    </TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-wider text-slate-400">
+                      {t("patientDetail.csvHeaderAccuracy")}
+                    </TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-wider text-slate-400">
+                      {t("patientDetail.csvHeaderDuration")}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -418,15 +496,15 @@ function PatientDetailsPageContent() {
                       <TableCell colSpan={5} className="h-40">
                         <div className="flex flex-col items-center justify-center text-center">
                           <CalendarDays className="h-7 w-7 text-slate-400 mb-2" />
-                          <p className="text-[12px] text-muted-foreground">لا توجد جلسات مسجّلة بعد</p>
-                          <p className="text-[11px] text-slate-400">ستظهر الجلسات هنا عندما يبدأ المريض الاختبار.</p>
+                          <p className="text-[12px] text-muted-foreground">{t("patientDetail.sessionsEmpty")}</p>
+                          <p className="text-[11px] text-slate-400">{t("patientDetail.sessionsEmptyHint")}</p>
                         </div>
                       </TableCell>
                     </TableRow>
                   ) : (
                     sessions.map((session) => (
                       <TableRow key={session.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
-                        <TableCell>{formatDateTime(session.created_at)}</TableCell>
+                        <TableCell>{formatDateTime(session.created_at, locale)}</TableCell>
                         <TableCell>
                           <span
                             className={[

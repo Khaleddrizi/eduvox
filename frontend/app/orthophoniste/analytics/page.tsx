@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react"
 import { AuthGuard } from "@/components/auth-guard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { fetchApi } from "@/lib/api"
+import { usePortalI18n } from "@/lib/i18n/i18n-context"
+import { readLocaleFromStorage, resolveMessage } from "@/lib/i18n/messages"
 import {
   ResponsiveContainer,
   LineChart,
@@ -77,6 +79,7 @@ function severityColor(name: string) {
 }
 
 function AnalyticsPage() {
+  const { t } = usePortalI18n()
   const [analytics, setAnalytics] = useState<SpecialistAnalytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -91,7 +94,12 @@ function AnalyticsPage() {
         const data = await fetchApi<SpecialistAnalytics>(`/api/specialists/dashboard?period=${period}`)
         if (!cancelled) setAnalytics(data)
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "تعذّر تحميل التحليلات")
+        if (!cancelled) {
+          const loc = readLocaleFromStorage("specialist")
+          setError(
+            err instanceof Error ? err.message : resolveMessage(loc, "specialist", "analytics.loadError"),
+          )
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -124,27 +132,27 @@ function AnalyticsPage() {
     <div>
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">التحليلات السريرية</h1>
-          <p className="text-sm text-muted-foreground mt-1">تتبّع المشاركة والتقدم واتجاهات التعلم عبر مرضاك.</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t("analytics.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t("analytics.subtitle")}</p>
         </div>
         <div className="inline-flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800/70">
           {([
-            { key: "7d", label: "٧ أيام" },
-            { key: "30d", label: "٣٠ يومًا" },
-            { key: "3m", label: "٣ أشهر" },
-          ] as const).map((t) => (
+            { key: "7d" as const, labelKey: "analytics.range7d" },
+            { key: "30d" as const, labelKey: "analytics.range30d" },
+            { key: "3m" as const, labelKey: "analytics.range3m" },
+          ] as const).map((btn) => (
             <button
-              key={t.key}
+              key={btn.key}
               type="button"
-              onClick={() => setPeriod(t.key)}
+              onClick={() => setPeriod(btn.key)}
               className={[
                 "px-3 py-1.5 text-sm font-medium rounded-lg transition-colors",
-                period === t.key
+                period === btn.key
                   ? "bg-white text-slate-900 shadow-sm dark:bg-slate-950 dark:text-white"
                   : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white",
               ].join(" ")}
             >
-              {t.label}
+              {t(btn.labelKey)}
             </button>
           ))}
         </div>
@@ -152,11 +160,13 @@ function AnalyticsPage() {
 
       {loading ? (
         <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">جاري تحميل التحليلات…</CardContent>
+          <CardContent className="py-10 text-center text-muted-foreground">{t("analytics.loading")}</CardContent>
         </Card>
       ) : error || !analytics ? (
         <Card>
-          <CardContent className="py-10 text-center text-destructive">{error || "تعذّر تحميل التحليلات."}</CardContent>
+          <CardContent className="py-10 text-center text-destructive">
+            {error || t("analytics.loadError")}
+          </CardContent>
         </Card>
       ) : (
         <div className="space-y-6">
@@ -165,9 +175,9 @@ function AnalyticsPage() {
               <CardContent className="pt-6 min-h-[122px]">
                 <div className="flex h-full items-start justify-between gap-4">
                   <div>
-                    <p className="text-[11px] uppercase tracking-wider text-slate-400">إجمالي المرضى</p>
+                    <p className="text-[11px] uppercase tracking-wider text-slate-400">{t("analytics.kpiPatients")}</p>
                     <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{analytics.total_patients}</p>
-                    <p className="mt-1 text-[12px] text-slate-400">— بلا تغيير</p>
+                    <p className="mt-1 text-[12px] text-slate-400">{t("analytics.kpiPatientsHint")}</p>
                   </div>
                   <div className="h-9 w-9 rounded-lg bg-[#EBF5FE] flex items-center justify-center">
                     <Users className="h-5 w-5 text-[#1a8fe3]" />
@@ -179,9 +189,11 @@ function AnalyticsPage() {
               <CardContent className="pt-6 min-h-[122px]">
                 <div className="flex h-full items-start justify-between gap-4">
                   <div>
-                    <p className="text-[11px] uppercase tracking-wider text-slate-400">اختبارات اليوم</p>
+                    <p className="text-[11px] uppercase tracking-wider text-slate-400">{t("analytics.kpiToday")}</p>
                     <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{analytics.quiz_today}</p>
-                    <p className="mt-1 text-[12px] text-slate-400">أمس: {analytics.quiz_yesterday}</p>
+                    <p className="mt-1 text-[12px] text-slate-400">
+                      {t("analytics.kpiTodayHint").replace("{n}", String(analytics.quiz_yesterday))}
+                    </p>
                   </div>
                   <div className="h-9 w-9 rounded-lg bg-[#E1F5EE] flex items-center justify-center">
                     <CheckCircle2 className="h-5 w-5 text-[#0f766e]" />
@@ -193,7 +205,7 @@ function AnalyticsPage() {
               <CardContent className="pt-6 min-h-[122px]">
                 <div className="flex h-full items-start justify-between gap-4">
                   <div>
-                    <p className="text-[11px] uppercase tracking-wider text-slate-400">متوسط التقدم</p>
+                    <p className="text-[11px] uppercase tracking-wider text-slate-400">{t("analytics.kpiProgress")}</p>
                     <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{analytics.avg_progression}%</p>
                     <p
                       className={[
@@ -207,8 +219,10 @@ function AnalyticsPage() {
                     >
                       {progressionDelta.sign === "up" ? <ArrowUpRight className="h-3.5 w-3.5" /> : progressionDelta.sign === "down" ? <ArrowDownRight className="h-3.5 w-3.5" /> : null}
                       {progressionDelta.sign === "none"
-                        ? "— بلا تغيير"
-                        : `${progressionDelta.sign === "up" ? "+" : "-"}${progressionDelta.delta}% مقارنة بالأسبوع الماضي`}
+                        ? t("analytics.kpiProgressFlat")
+                        : t("analytics.kpiProgressDelta")
+                            .replace("{sign}", progressionDelta.sign === "up" ? "+" : "-")
+                            .replace("{n}", String(progressionDelta.delta))}
                     </p>
                   </div>
                   <div className="h-9 w-9 rounded-lg bg-[#EEEDFE] flex items-center justify-center">
@@ -221,7 +235,7 @@ function AnalyticsPage() {
               <CardContent className="pt-6 min-h-[122px]">
                 <div className="flex h-full items-start justify-between gap-4">
                   <div>
-                    <p className="text-[11px] uppercase tracking-wider text-slate-400">متوسط الانتظام</p>
+                    <p className="text-[11px] uppercase tracking-wider text-slate-400">{t("analytics.kpiAssiduity")}</p>
                     <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{analytics.assiduity_avg}%</p>
                     <p
                       className={[
@@ -229,7 +243,7 @@ function AnalyticsPage() {
                         analytics.assiduity_avg < 30 ? "text-red-700" : "text-emerald-700",
                       ].join(" ")}
                     >
-                      {analytics.assiduity_avg < 30 ? "↓ مشاركة منخفضة" : "↑ مشاركة جيدة"}
+                      {analytics.assiduity_avg < 30 ? t("analytics.kpiAssiduityLow") : t("analytics.kpiAssiduityOk")}
                     </p>
                   </div>
                   <div className="h-9 w-9 rounded-lg bg-[#FAEEDA] flex items-center justify-center">
@@ -245,16 +259,16 @@ function AnalyticsPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-primary" />
-                  التقدم الأسبوعي
+                  {t("analytics.weeklyTitle")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-[380px] flex flex-col">
                 <div className="mb-3 flex items-center gap-4 text-xs text-muted-foreground">
                   <div className="inline-flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-sky-500" /> التقدم
+                    <span className="h-2 w-2 rounded-full bg-sky-500" /> {t("analytics.legendProgress")}
                   </div>
                   <div className="inline-flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-slate-400" /> الهدف
+                    <span className="h-2 w-2 rounded-full bg-slate-400" /> {t("analytics.legendTarget")}
                   </div>
                 </div>
                 <div className="flex-1 w-full">
@@ -267,8 +281,8 @@ function AnalyticsPage() {
                       <XAxis dataKey="semaine" />
                       <YAxis domain={[0, 100]} />
                       <Tooltip
-                        formatter={(value: number) => [`${value}%`, "التقدم"]}
-                        labelFormatter={(label) => `الفترة: ${label}`}
+                        formatter={(value: number) => [`${value}%`, t("analytics.tooltipProgress")]}
+                        labelFormatter={(label) => t("analytics.tooltipPeriod").replace("{label}", String(label))}
                       />
                       <Area type="monotone" dataKey="progression" stroke="none" fill="#0ea5e9" fillOpacity={0.1} />
                       <Line
@@ -306,19 +320,19 @@ function AnalyticsPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5 text-primary" />
-                  مجموعات التشخيص
+                  {t("analytics.diagTitle")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-[380px] flex flex-col">
                 <div className="mb-3 flex items-center gap-4 text-xs text-muted-foreground">
                   <div className="inline-flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-amber-500" /> خفيف
+                    <span className="h-2 w-2 rounded-full bg-amber-500" /> {t("common.severityMild")}
                   </div>
                   <div className="inline-flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-orange-500" /> متوسط
+                    <span className="h-2 w-2 rounded-full bg-orange-500" /> {t("common.severityModerate")}
                   </div>
                   <div className="inline-flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-red-500" /> شديد
+                    <span className="h-2 w-2 rounded-full bg-red-500" /> {t("common.severitySevere")}
                   </div>
                 </div>
                 <div className="flex-1 w-full">
@@ -330,7 +344,7 @@ function AnalyticsPage() {
                       ))}
                       <XAxis dataKey="groupe" />
                       <YAxis domain={[0, 100]} />
-                      <Tooltip formatter={(value: number) => [`${value}%`, "متوسط التقدم"]} />
+                      <Tooltip formatter={(value: number) => [`${value}%`, t("analytics.avgProgress")]} />
                       <Bar dataKey="progression" radius={[4, 4, 0, 0]}>
                         {(analytics.diagnostic_by_group || []).map((row) => (
                           <Cell key={row.groupe} fill={severityColor(row.groupe)} />
@@ -347,12 +361,12 @@ function AnalyticsPage() {
           <div className="grid gap-6 xl:grid-cols-2">
             <Card className="surface-card">
               <CardHeader>
-                <CardTitle>أنشطة حديثة</CardTitle>
+                <CardTitle>{t("analytics.recentTitle")}</CardTitle>
               </CardHeader>
               <CardContent className="h-[420px] flex flex-col">
                 <div className="flex-1 space-y-4 overflow-auto pr-1">
                 {analytics.recent_activities.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">لا أنشطة حديثة أخرى</p>
+                  <p className="text-sm text-muted-foreground italic">{t("analytics.recentEmpty")}</p>
                 ) : (
                   analytics.recent_activities.map((activity) => (
                     <div key={activity.id} className="flex items-start justify-between gap-4 rounded-lg border border-slate-200/70 dark:border-slate-700 p-4">
@@ -372,7 +386,7 @@ function AnalyticsPage() {
 
             <Card className="surface-card">
               <CardHeader>
-                <CardTitle>توزيع المرضى</CardTitle>
+                <CardTitle>{t("analytics.distTitle")}</CardTitle>
               </CardHeader>
               <CardContent className="h-[420px] flex flex-col">
                 <div className="space-y-4">
@@ -380,11 +394,16 @@ function AnalyticsPage() {
                     const row = analytics.diagnostic_distribution.find((x) => x.name === name)
                     const pct = row?.value ?? 0
                     const barColor = name === "Mild" ? "bg-amber-500" : name === "Moderate" ? "bg-orange-500" : "bg-red-500"
-                    const nameAr = name === "Mild" ? "خفيف" : name === "Moderate" ? "متوسط" : "شديد"
+                    const nameLabel =
+                      name === "Mild"
+                        ? t("common.severityMild")
+                        : name === "Moderate"
+                          ? t("common.severityModerate")
+                          : t("common.severitySevere")
                     return (
                       <div key={name}>
                         <div className="flex items-center justify-between text-sm">
-                          <span className="font-medium text-slate-900 dark:text-white">{nameAr}</span>
+                          <span className="font-medium text-slate-900 dark:text-white">{nameLabel}</span>
                           <span className="text-muted-foreground">{pct}%</span>
                         </div>
                         <div className="mt-2 h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
@@ -396,7 +415,7 @@ function AnalyticsPage() {
                 </div>
 
                 <div className="mt-auto pt-6">
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">الجلسات هذا الأسبوع</p>
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{t("analytics.sessionsWeek")}</p>
                   <div className="mt-3 flex items-end justify-between gap-2">
                     {(analytics.sessions_by_day || []).map((d) => {
                       const max = Math.max(1, ...(analytics.sessions_by_day || []).map((x) => x.count))

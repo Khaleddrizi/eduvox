@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getAuthHeaders, publicApiBase } from "@/lib/api"
+import { usePortalI18n } from "@/lib/i18n/i18n-context"
+import type { AppLocale } from "@/lib/i18n/types"
 import { Star, KeyRound, BookOpen, Clock } from "lucide-react"
 
 interface ApiChild {
@@ -30,18 +32,35 @@ interface ApiSession {
   created_at: string | null
 }
 
-function formatDateTime(value: string | null | undefined) {
-  if (!value) return "—"
-  return new Date(value).toLocaleString()
+function localeTag(loc: AppLocale) {
+  if (loc === "ar") return "ar"
+  if (loc === "fr") return "fr-FR"
+  return "en-US"
 }
 
-function statusFrom(stats: ApiChild["stats"]) {
-  if (!stats.total_sessions || stats.avg_accuracy < 30) return { label: "يحتاج انتباهًا", cls: "bg-red-100 text-red-700" }
-  if (stats.avg_accuracy < 70) return { label: "مراقبة", cls: "bg-amber-100 text-amber-700" }
-  return { label: "على المسار", cls: "bg-emerald-100 text-emerald-700" }
+function formatDateTime(value: string | null | undefined, locale: AppLocale) {
+  if (!value) return "—"
+  return new Date(value).toLocaleString(localeTag(locale))
+}
+
+function statusFrom(stats: ApiChild["stats"], t: (key: string) => string) {
+  if (!stats.total_sessions || stats.avg_accuracy < 30)
+    return { label: t("status.needsAttention"), cls: "bg-red-100 text-red-700" }
+  if (stats.avg_accuracy < 70) return { label: t("status.monitor"), cls: "bg-amber-100 text-amber-700" }
+  return { label: t("status.onTrack"), cls: "bg-emerald-100 text-emerald-700" }
+}
+
+function diagnosticLabel(diagnostic: string | null | undefined, t: (key: string) => string) {
+  const d = (diagnostic || "").trim()
+  if (!d) return t("common.noLevel")
+  if (/severe/i.test(d)) return t("common.severitySevere")
+  if (/moderate/i.test(d)) return t("common.severityModerate")
+  if (/mild/i.test(d)) return t("common.severityMild")
+  return d
 }
 
 function ChildDetailsContent() {
+  const { t, locale } = usePortalI18n()
   const params = useParams<{ id: string }>()
   const childId = params?.id
   const [child, setChild] = useState<ApiChild | null>(null)
@@ -72,13 +91,17 @@ function ChildDetailsContent() {
     }
   }, [childId])
 
-  const status = useMemo(() => statusFrom(child?.stats || { total_sessions: 0, avg_accuracy: 0, total_correct: 0, total_asked: 0 }), [child])
+  const status = useMemo(
+    () =>
+      statusFrom(child?.stats || { total_sessions: 0, avg_accuracy: 0, total_correct: 0, total_asked: 0 }, t),
+    [child, t],
+  )
   const stars = child?.stats?.total_correct ?? 0
   const goalTarget = 50
   const goalProgress = Math.min(100, Math.round((stars / goalTarget) * 100))
 
-  if (loading) return <p className="text-sm text-muted-foreground">جاري تحميل تفاصيل الطفل…</p>
-  if (!child) return <p className="text-sm text-muted-foreground">لم يُعثر على الطفل.</p>
+  if (loading) return <p className="text-sm text-muted-foreground">{t("childDetail.loading")}</p>
+  if (!child) return <p className="text-sm text-muted-foreground">{t("childDetail.notFound")}</p>
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -88,8 +111,10 @@ function ChildDetailsContent() {
             <div>
               <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{child.name}</h1>
               <div className="mt-2 flex flex-wrap gap-2">
-                <Badge variant="outline">{child.age != null ? `${child.age} سنة` : "—"}</Badge>
-                <Badge variant="outline">{child.diagnostic || "بدون مستوى"}</Badge>
+                <Badge variant="outline">
+                  {child.age != null ? `${child.age} ${t("common.age")}` : "—"}
+                </Badge>
+                <Badge variant="outline">{diagnosticLabel(child.diagnostic, t)}</Badge>
                 <Badge className={status.cls}>{status.label}</Badge>
                 <code className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-mono text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                   {child.alexa_code || "—"}
@@ -97,7 +122,7 @@ function ChildDetailsContent() {
               </div>
             </div>
             <Button asChild variant="outline" size="sm">
-              <Link href="/dashboard/reports">عرض التقارير الكاملة</Link>
+              <Link href="/dashboard/reports">{t("childDetail.fullReports")}</Link>
             </Button>
           </div>
         </CardContent>
@@ -105,34 +130,46 @@ function ChildDetailsContent() {
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
-          <TabsTrigger value="overview">نظرة عامة</TabsTrigger>
-          <TabsTrigger value="sessions">الجلسات</TabsTrigger>
-          <TabsTrigger value="rewards">المكافآت</TabsTrigger>
+          <TabsTrigger value="overview">{t("childDetail.tabOverview")}</TabsTrigger>
+          <TabsTrigger value="sessions">{t("childDetail.tabSessions")}</TabsTrigger>
+          <TabsTrigger value="rewards">{t("childDetail.tabRewards")}</TabsTrigger>
         </TabsList>
       </Tabs>
 
       {tab === "overview" ? (
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="surface-card">
-            <CardHeader><CardTitle className="text-sm">البرنامج المعيّن</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-sm">{t("childDetail.programTitle")}</CardTitle>
+            </CardHeader>
             <CardContent>
-              <div className="inline-flex items-center gap-2 text-xs text-muted-foreground mb-2"><BookOpen className="h-3.5 w-3.5" /> برنامج التعلم الحالي</div>
-              <p className="font-semibold">{child.assigned_program?.name || "لا يوجد برنامج معيّن"}</p>
+              <div className="inline-flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                <BookOpen className="h-3.5 w-3.5" /> {t("childDetail.programCurrent")}
+              </div>
+              <p className="font-semibold">{child.assigned_program?.name || t("childDetail.programMissing")}</p>
             </CardContent>
           </Card>
           <Card className="surface-card">
-            <CardHeader><CardTitle className="text-sm">رمز الطفل</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-sm">{t("childDetail.codeTitle")}</CardTitle>
+            </CardHeader>
             <CardContent>
-              <div className="inline-flex items-center gap-2 text-xs text-muted-foreground mb-2"><KeyRound className="h-3.5 w-3.5" /> استخدم هذا الرمز كما هو للطفل</div>
+              <div className="inline-flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                <KeyRound className="h-3.5 w-3.5" /> {t("childDetail.codeHint")}
+              </div>
               <code className="rounded bg-slate-100 px-2 py-1 font-mono dark:bg-slate-800">{child.alexa_code || "—"}</code>
             </CardContent>
           </Card>
           <Card className="surface-card">
-            <CardHeader><CardTitle className="text-sm">الأداء</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-sm">{t("childDetail.performanceTitle")}</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-1">
-              <p className="text-sm text-muted-foreground">متوسط الدقة</p>
+              <p className="text-sm text-muted-foreground">{t("childDetail.avgAccuracy")}</p>
               <p className="text-2xl font-bold">{Math.round(child.stats.avg_accuracy || 0)}%</p>
-              <p className="text-xs text-muted-foreground">{child.stats.total_sessions} جلسة مكتملة</p>
+              <p className="text-xs text-muted-foreground">
+                {t("childDetail.sessionsDone").replace("{n}", String(child.stats.total_sessions))}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -141,29 +178,33 @@ function ChildDetailsContent() {
       {tab === "sessions" ? (
         <Card className="surface-card">
           <CardHeader>
-            <CardTitle>آخر الجلسات</CardTitle>
+            <CardTitle>{t("childDetail.lastSessionsTitle")}</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>التاريخ</TableHead>
-                  <TableHead>النتيجة</TableHead>
-                  <TableHead>الأسئلة</TableHead>
-                  <TableHead>الدقة</TableHead>
-                  <TableHead>المدة</TableHead>
+                  <TableHead>{t("childDetail.colDate")}</TableHead>
+                  <TableHead>{t("childDetail.colScore")}</TableHead>
+                  <TableHead>{t("childDetail.colQuestions")}</TableHead>
+                  <TableHead>{t("childDetail.colAccuracy")}</TableHead>
+                  <TableHead>{t("childDetail.colDuration")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sessions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">لا توجد جلسات بعد.</TableCell>
+                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                      {t("childDetail.tableEmpty")}
+                    </TableCell>
                   </TableRow>
                 ) : (
                   sessions.map((s) => (
                     <TableRow key={s.id}>
-                      <TableCell>{formatDateTime(s.created_at)}</TableCell>
-                      <TableCell>{s.score}/{s.total_questions}</TableCell>
+                      <TableCell>{formatDateTime(s.created_at, locale)}</TableCell>
+                      <TableCell>
+                        {s.score}/{s.total_questions}
+                      </TableCell>
                       <TableCell>{s.total_questions}</TableCell>
                       <TableCell>{s.accuracy_pct}%</TableCell>
                       <TableCell>{Math.max(1, s.total_questions) * 20}s</TableCell>
@@ -179,17 +220,26 @@ function ChildDetailsContent() {
       {tab === "rewards" ? (
         <Card className="surface-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Star className="h-4 w-4 text-amber-500" /> المكافآت والهدف</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Star className="h-4 w-4 text-amber-500" /> {t("childDetail.rewardsTitle")}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">الهدف الحالي: 50 نجمة</p>
-            <p className="text-2xl font-bold">{stars}/{goalTarget}</p>
+            <p className="text-sm text-muted-foreground">{t("childDetail.goalLine")}</p>
+            <p className="text-2xl font-bold">
+              {stars}/{goalTarget}
+            </p>
             <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
-              <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-500" style={{ width: `${goalProgress}%` }} />
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-500"
+                style={{ width: `${goalProgress}%` }}
+              />
             </div>
             <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
-              {goalProgress >= 100 ? "تم تحقيق الهدف!" : `${goalTarget - stars} نجمة متبقية`}
+              {goalProgress >= 100
+                ? t("childDetail.goalDone")
+                : t("childDetail.goalLeft").replace("{n}", String(goalTarget - stars))}
             </p>
           </CardContent>
         </Card>

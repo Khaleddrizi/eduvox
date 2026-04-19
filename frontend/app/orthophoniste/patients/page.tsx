@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { AuthGuard } from "@/components/auth-guard"
@@ -15,9 +15,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { fetchApi } from "@/lib/api"
+import { usePortalI18n } from "@/lib/i18n/i18n-context"
+import { readLocaleFromStorage, resolveMessage } from "@/lib/i18n/messages"
+import { formatRelativeLast } from "@/lib/i18n/format-relative-last"
 import { Search, Users, Mail, Phone, Eye, PlusCircle, ArrowUpDown } from "lucide-react"
 
 type PatientStatus = "on_track" | "monitor" | "needs_attention"
@@ -40,20 +42,6 @@ interface ApiPatient {
   } | null
 }
 
-function formatLastActivity(isoDate: string | undefined): string {
-  if (!isoDate) return "لا نشاط بعد"
-  const d = new Date(isoDate)
-  const now = new Date()
-  const diffMs = now.getTime() - d.getTime()
-  const diffHours = Math.floor(diffMs / 3600000)
-  const diffDays = Math.floor(diffMs / 86400000)
-  if (diffHours < 1) return "الآن"
-  if (diffHours < 24) return diffHours === 1 ? "منذ ساعة" : `منذ ${diffHours} ساعة`
-  if (diffDays === 1) return "أمس"
-  if (diffDays < 7) return `منذ ${diffDays} أيام`
-  return d.toLocaleDateString()
-}
-
 function getStatus(score: number, sessions: number): PatientStatus {
   if (!sessions || sessions <= 0) return "needs_attention"
   if (score < 30) return "needs_attention"
@@ -61,14 +49,25 @@ function getStatus(score: number, sessions: number): PatientStatus {
   return "on_track"
 }
 
-function getStatusBadge(status: PatientStatus) {
-  const config: Record<PatientStatus, { label: string; className: string }> = {
-    on_track: { label: "على المسار", className: "border-transparent bg-[#dcfce7] text-[#166534]" },
-    monitor: { label: "مراقبة", className: "border-transparent bg-[#fef3c7] text-[#92400e]" },
-    needs_attention: { label: "يحتاج انتباهًا", className: "border-transparent bg-[#fee2e2] text-[#991b1b]" },
+function getStatusBadge(status: PatientStatus, t: (key: string) => string) {
+  const config: Record<PatientStatus, { key: string; className: string }> = {
+    on_track: { key: "status.onTrack", className: "border-transparent bg-[#dcfce7] text-[#166534]" },
+    monitor: { key: "status.monitor", className: "border-transparent bg-[#fef3c7] text-[#92400e]" },
+    needs_attention: { key: "status.needsAttention", className: "border-transparent bg-[#fee2e2] text-[#991b1b]" },
   }
   const item = config[status]
-  return <Badge variant="outline" className={item.className}>{item.label}</Badge>
+  return (
+    <Badge variant="outline" className={item.className}>
+      {t(item.key)}
+    </Badge>
+  )
+}
+
+function diagnosticLabel(diagnostic: string | null | undefined, t: (key: string) => string) {
+  if (diagnostic === "Mild") return t("common.severityMild")
+  if (diagnostic === "Moderate") return t("common.severityModerate")
+  if (diagnostic === "Severe") return t("common.severitySevere")
+  return t("common.noLevel")
 }
 
 function getProgressColor(score: number) {
@@ -109,6 +108,7 @@ function severityDotClass(level: string | null | undefined) {
 
 function PatientsPage() {
   const router = useRouter()
+  const { t, locale } = usePortalI18n()
   const [searchQuery, setSearchQuery] = useState("")
   const [patients, setPatients] = useState<ApiPatient[]>([])
   const [loading, setLoading] = useState(true)
@@ -125,7 +125,14 @@ function PatientsPage() {
         const data = await fetchApi<ApiPatient[]>("/api/specialists/patients")
         if (!cancelled) setPatients(data)
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "تعذّر تحميل المرضى")
+        if (!cancelled) {
+          const loc = readLocaleFromStorage("specialist")
+          setError(
+            err instanceof Error
+              ? err.message
+              : resolveMessage(loc, "specialist", "patientsList.loadError"),
+          )
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -135,6 +142,11 @@ function PatientsPage() {
       cancelled = true
     }
   }, [])
+
+  const formatLast = useCallback(
+    (iso: string | undefined) => formatRelativeLast(iso, locale, t("home.noActivity")),
+    [locale, t],
+  )
 
   const searchedPatients = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -162,11 +174,11 @@ function PatientsPage() {
         sessions,
         focusScore,
         lastIso,
-        lastLabel: formatLastActivity(lastIso || undefined),
+        lastLabel: formatLast(lastIso || undefined),
         status,
       }
     })
-  }, [searchedPatients])
+  }, [searchedPatients, formatLast])
 
   const counts = useMemo(() => {
     const all = derived.length
@@ -234,13 +246,13 @@ function PatientsPage() {
     <div className="min-w-0">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white md:text-3xl">إدارة المرضى</h1>
-          <p className="text-sm text-muted-foreground mt-1">راجع المرضى وأولياء الأمور المرتبطين وحالة النشاط.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white md:text-3xl">{t("patientsList.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t("patientsList.subtitle")}</p>
         </div>
         <Button asChild>
           <Link href="/orthophoniste/patients/new">
             <PlusCircle className="h-4 w-4 mr-2" />
-            إضافة مريض
+            {t("patientsList.addPatient")}
           </Link>
         </Button>
       </div>
@@ -248,23 +260,23 @@ function PatientsPage() {
       <div className="grid gap-4 md:grid-cols-3 mb-6">
         <Card className="surface-card">
           <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">إجمالي المرضى</p>
+            <p className="text-sm text-muted-foreground">{t("patientsList.kpiTotal")}</p>
             <p className="text-3xl font-bold mt-1">{totalPatients}</p>
-            <p className="text-xs text-muted-foreground mt-1">تحت رعايتك</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("patientsList.kpiTotalHint")}</p>
           </CardContent>
         </Card>
         <Card className="surface-card">
           <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">مرضى نشطون</p>
+            <p className="text-sm text-muted-foreground">{t("patientsList.kpiActive")}</p>
             <p className="text-3xl font-bold mt-1 text-emerald-600">{activePatients}</p>
-            <p className="text-xs text-muted-foreground mt-1">لديهم نشاط هذا الأسبوع</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("patientsList.kpiActiveHint")}</p>
           </CardContent>
         </Card>
         <Card className="surface-card">
           <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">يحتاجون انتباهًا</p>
+            <p className="text-sm text-muted-foreground">{t("patientsList.kpiAttention")}</p>
             <p className="text-3xl font-bold mt-1 text-red-600">{needsAttention}</p>
-            <p className="text-xs mt-1 text-red-600/90">دقة أقل من ٣٠٪ أو غير نشط</p>
+            <p className="text-xs mt-1 text-red-600/90">{t("patientsList.kpiAttentionHint")}</p>
           </CardContent>
         </Card>
       </div>
@@ -275,14 +287,14 @@ function PatientsPage() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5 text-primary" />
-                دليل المرضى
+                {t("patientsList.cardTitle")}
               </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">ابحث باسم الطفل أو الرمز أو بيانات ولي الأمر.</p>
+              <p className="text-sm text-muted-foreground mt-1">{t("patientsList.cardHint")}</p>
             </div>
             <div className="relative w-full md:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="بحث في المرضى…"
+                placeholder={t("patientsList.searchPh")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 bg-white dark:bg-slate-800"
@@ -292,13 +304,25 @@ function PatientsPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             {(
               [
-                { key: "all" as const, label: `الكل (${counts.all})` },
-                { key: "needs_attention" as const, label: `يحتاج انتباهًا (${counts.byStatus.needs_attention})` },
-                { key: "monitor" as const, label: `مراقبة (${counts.byStatus.monitor})` },
-                { key: "on_track" as const, label: `على المسار (${counts.byStatus.on_track})` },
-                { key: "Mild" as const, label: "خفيف" },
-                { key: "Moderate" as const, label: "متوسط" },
-                { key: "Severe" as const, label: "شديد" },
+                { key: "all" as const, label: t("patientsList.filterAll").replace("{count}", String(counts.all)) },
+                {
+                  key: "needs_attention" as const,
+                  label: t("patientsList.filterNeeds").replace(
+                    "{count}",
+                    String(counts.byStatus.needs_attention),
+                  ),
+                },
+                {
+                  key: "monitor" as const,
+                  label: t("patientsList.filterMonitor").replace("{count}", String(counts.byStatus.monitor)),
+                },
+                {
+                  key: "on_track" as const,
+                  label: t("patientsList.filterOnTrack").replace("{count}", String(counts.byStatus.on_track)),
+                },
+                { key: "Mild" as const, label: t("common.severityMild") },
+                { key: "Moderate" as const, label: t("common.severityModerate") },
+                { key: "Severe" as const, label: t("common.severitySevere") },
               ] as const
             ).map((chip) => {
               const isActive = filter === chip.key
@@ -333,9 +357,9 @@ function PatientsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>المريض</TableHead>
-                <TableHead className="hidden lg:table-cell">ولي الأمر</TableHead>
-                <TableHead className="hidden md:table-cell">رمز الطفل</TableHead>
+                <TableHead>{t("patientsList.colPatient")}</TableHead>
+                <TableHead className="hidden lg:table-cell">{t("patientsList.colParent")}</TableHead>
+                <TableHead className="hidden md:table-cell">{t("patientsList.colCode")}</TableHead>
                 <TableHead
                   className={[
                     "hidden select-none md:table-cell",
@@ -345,7 +369,7 @@ function PatientsPage() {
                   onClick={() => toggleSort("lastActivity")}
                 >
                   <span className="inline-flex items-center gap-1">
-                    آخر نشاط <ArrowUpDown className="h-3.5 w-3.5 opacity-70" />
+                    {t("patientsList.colLast")} <ArrowUpDown className="h-3.5 w-3.5 opacity-70" />
                   </span>
                 </TableHead>
                 <TableHead
@@ -357,7 +381,7 @@ function PatientsPage() {
                   onClick={() => toggleSort("sessions")}
                 >
                   <span className="inline-flex items-center gap-1">
-                    الجلسات <ArrowUpDown className="h-3.5 w-3.5 opacity-70" />
+                    {t("patientsList.colSessions")} <ArrowUpDown className="h-3.5 w-3.5 opacity-70" />
                   </span>
                 </TableHead>
                 <TableHead
@@ -369,18 +393,18 @@ function PatientsPage() {
                   onClick={() => toggleSort("focusScore")}
                 >
                   <span className="inline-flex items-center gap-1">
-                    درجة التركيز <ArrowUpDown className="h-3.5 w-3.5 opacity-70" />
+                    {t("patientsList.colFocus")} <ArrowUpDown className="h-3.5 w-3.5 opacity-70" />
                   </span>
                 </TableHead>
-                <TableHead>الحالة</TableHead>
-                <TableHead className="text-right">إجراءات</TableHead>
+                <TableHead>{t("patientsList.colStatus")}</TableHead>
+                <TableHead className="text-right">{t("patientsList.colActions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                    جاري تحميل المرضى…
+                    {t("patientsList.loading")}
                   </TableCell>
                 </TableRow>
               ) : error ? (
@@ -392,13 +416,13 @@ function PatientsPage() {
               ) : sorted.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                    لا يوجد مرضى.
+                    {t("patientsList.empty")}
                   </TableCell>
                 </TableRow>
               ) : (
                 sorted.map(({ raw: patient, focusScore, sessions, lastLabel, status, lastIso }) => {
                   const avatar = avatarStyleForPatient(patient)
-                  const diagnostic = (patient.diagnostic || "بدون مستوى") as string
+                  const diagnostic = diagnosticLabel(patient.diagnostic, t)
                   const isNoActivity = !lastIso
                   return (
                     <TableRow key={patient.id} className="hover:bg-[#f9fafb] dark:hover:bg-slate-800/50">
@@ -412,7 +436,9 @@ function PatientsPage() {
                           <div>
                             <p className="font-medium text-slate-900 dark:text-white">{patient.name}</p>
                             <p className="text-xs text-muted-foreground flex items-center gap-2">
-                              <span>{patient.age != null ? `${patient.age} سنة` : "—"}</span>
+                              <span>
+                                {patient.age != null ? `${patient.age} ${t("common.age")}` : "—"}
+                              </span>
                               <span aria-hidden>·</span>
                               <span className="inline-flex items-center gap-1">
                                 <span className={`h-2 w-2 rounded-full ${severityDotClass(patient.diagnostic)}`} />
@@ -426,7 +452,7 @@ function PatientsPage() {
                       <TableCell className="hidden lg:table-cell">
                         {patient.parent ? (
                           <div className="space-y-1">
-                            <p className="text-sm font-normal">{patient.parent.full_name || "ولي أمر"}</p>
+                            <p className="text-sm font-normal">{patient.parent.full_name || t("common.parent")}</p>
                             <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                               <Mail className="h-3 w-3" />
                               <span>{patient.parent.email}</span>
@@ -436,12 +462,12 @@ function PatientsPage() {
                               {patient.parent.phone ? (
                                 <span>{patient.parent.phone}</span>
                               ) : (
-                                <span className="text-slate-400">— لا هاتف</span>
+                                <span className="text-slate-400">{t("patientsList.noPhoneDash")}</span>
                               )}
                             </div>
                           </div>
                         ) : (
-                          <span className="text-sm text-muted-foreground">لا ولي أمر مرتبط</span>
+                          <span className="text-sm text-muted-foreground">{t("patientsList.noParent")}</span>
                         )}
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
@@ -461,11 +487,11 @@ function PatientsPage() {
                           <span className="text-sm w-10">{focusScore}%</span>
                         </div>
                       </TableCell>
-                      <TableCell>{getStatusBadge(status)}</TableCell>
+                      <TableCell>{getStatusBadge(status, t)}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="outline" size="sm" onClick={() => router.push(`/orthophoniste/patient/${patient.id}`)}>
                           <Eye className="h-4 w-4 mr-1.5" />
-                          التفاصيل
+                          {t("common.details")}
                         </Button>
                       </TableCell>
                     </TableRow>
