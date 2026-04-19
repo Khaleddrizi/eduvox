@@ -6,12 +6,14 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Menu, X } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
+import { usePortalI18n } from "@/lib/i18n/i18n-context"
 
 export function SiteHeader() {
+  const { t } = usePortalI18n()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-30 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <Image src="/adhd-logo.png" alt="EDUVOX" width={40} height={40} className="rounded-md" />
@@ -24,12 +26,12 @@ export function SiteHeader() {
           <ModeToggle />
           <Link href="/login">
             <Button variant="ghost" className="hover:text-primary">
-              تسجيل الدخول
+              {t("nav.login")}
             </Button>
           </Link>
           <Link href="/register">
             <Button className="bg-gradient-to-r from-primary to-cyan-500 hover:from-primary/90 hover:to-cyan-500/90 transition-all duration-300">
-              إنشاء حساب مهني
+              {t("nav.register")}
             </Button>
           </Link>
         </nav>
@@ -46,10 +48,12 @@ export function SiteHeader() {
         <div className="md:hidden border-t">
           <div className="container py-4 space-y-2">
             <Link href="/login" className="block py-2">
-              <Button variant="outline" className="w-full">تسجيل الدخول</Button>
+              <Button variant="outline" className="w-full">
+                {t("nav.login")}
+              </Button>
             </Link>
             <Link href="/register" className="block py-2">
-              <Button className="w-full bg-gradient-to-r from-primary to-cyan-500">إنشاء حساب مهني</Button>
+              <Button className="w-full bg-gradient-to-r from-primary to-cyan-500">{t("nav.register")}</Button>
             </Link>
           </div>
         </div>

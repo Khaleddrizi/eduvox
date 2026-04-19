@@ -1,7 +1,13 @@
+"use client"
+
 import Link from "next/link"
 import { Facebook, Twitter, Instagram, Youtube, Mail, Phone } from "lucide-react"
+import { usePortalI18n } from "@/lib/i18n/i18n-context"
 
 export function SiteFooter() {
+  const { t } = usePortalI18n()
+  const year = new Date().getFullYear()
+
   return (
     <footer className="border-t bg-background">
       <div className="container py-10">
@@ -10,10 +16,8 @@ export function SiteFooter() {
             <h3 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-500">
               EDUVOX
             </h3>
-            <p className="text-sm text-muted-foreground">
-              منصة دعم معرفي مبتكرة للأطفال المصابين بـ ADHD، بإشراف مهني ومسارات تفاعلية واضحة.
-            </p>
-            <div className="flex space-x-3">
+            <p className="text-sm text-muted-foreground">{t("footer.tagline")}</p>
+            <div className="flex flex-wrap gap-3">
               <Link href="#" className="text-muted-foreground hover:text-primary transition-colors duration-200">
                 <Facebook size={20} />
                 <span className="sr-only">Facebook</span>
@@ -33,57 +37,57 @@ export function SiteFooter() {
             </div>
           </div>
           <div className="space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-wider">المصادر</h3>
+            <h3 className="text-sm font-bold uppercase tracking-wider">{t("footer.resources")}</h3>
             <ul className="space-y-2 text-sm">
               <li>
                 <Link href="#" className="text-muted-foreground hover:text-primary transition-colors duration-200">
-                  المدونة
+                  {t("footer.linkBlog")}
                 </Link>
               </li>
               <li>
                 <Link href="#" className="text-muted-foreground hover:text-primary transition-colors duration-200">
-                  مركز الوثائق
+                  {t("footer.linkDocs")}
                 </Link>
               </li>
               <li>
                 <Link href="#" className="text-muted-foreground hover:text-primary transition-colors duration-200">
-                  تمارين قابلة للتحميل
+                  {t("footer.linkDownloads")}
                 </Link>
               </li>
               <li>
                 <Link href="#" className="text-muted-foreground hover:text-primary transition-colors duration-200">
-                  الأسئلة الشائعة
+                  {t("footer.linkFaq")}
                 </Link>
               </li>
             </ul>
           </div>
           <div className="space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-wider">الشركة</h3>
+            <h3 className="text-sm font-bold uppercase tracking-wider">{t("footer.company")}</h3>
             <ul className="space-y-2 text-sm">
               <li>
                 <Link href="#" className="text-muted-foreground hover:text-primary transition-colors duration-200">
-                  من نحن
+                  {t("footer.linkWho")}
                 </Link>
               </li>
               <li>
                 <Link href="#" className="text-muted-foreground hover:text-primary transition-colors duration-200">
-                  فريقنا
+                  {t("footer.linkTeam")}
                 </Link>
               </li>
               <li>
                 <Link href="#" className="text-muted-foreground hover:text-primary transition-colors duration-200">
-                  الوظائف
+                  {t("footer.linkCareers")}
                 </Link>
               </li>
               <li>
                 <Link href="#" className="text-muted-foreground hover:text-primary transition-colors duration-200">
-                  تواصل معنا
+                  {t("footer.linkContact")}
                 </Link>
               </li>
             </ul>
           </div>
           <div className="space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-wider">التواصل</h3>
+            <h3 className="text-sm font-bold uppercase tracking-wider">{t("footer.contact")}</h3>
             <ul className="space-y-2 text-sm">
               <li className="flex items-center gap-2 text-muted-foreground">
                 <Mail size={16} className="text-primary" />
@@ -98,7 +102,7 @@ export function SiteFooter() {
                   href="#"
                   className="inline-flex h-9 items-center justify-center rounded-md bg-gradient-to-r from-primary to-cyan-500 hover:from-primary/90 hover:to-cyan-500/90 px-4 py-2 text-sm font-medium text-white shadow transition-colors duration-200"
                 >
-                  تواصل معنا
+                  {t("footer.ctaContact")}
                 </Link>
               </li>
             </ul>
@@ -106,19 +110,19 @@ export function SiteFooter() {
         </div>
         <div className="mt-8 border-t pt-8">
           <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-            <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} EDUVOX. جميع الحقوق محفوظة.</p>
+            <p className="text-xs text-muted-foreground">{t("footer.copyright").replace("{year}", String(year))}</p>
             <div className="flex gap-4 text-xs text-muted-foreground">
               <Link href="#" className="hover:text-primary transition-colors duration-200">
-                من نحن
+                {t("footer.bottomWho")}
               </Link>
               <Link href="#" className="hover:text-primary transition-colors duration-200">
-                تواصل
+                {t("footer.bottomContact")}
               </Link>
               <Link href="#" className="hover:text-primary transition-colors duration-200">
-                الإشعارات القانونية
+                {t("footer.bottomLegal")}
               </Link>
               <Link href="#" className="hover:text-primary transition-colors duration-200">
-                الخصوصية
+                {t("footer.bottomPrivacy")}
               </Link>
             </div>
           </div>

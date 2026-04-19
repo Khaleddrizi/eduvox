@@ -1,10 +1,16 @@
 /**
- * Flat message keys: common.*, sp.* (specialist), pa.* (parent), ad.* (admin).
- * usePortalI18n() prefixes sp./pa./ad. automatically except for keys starting with "common.".
+ * Flat message keys: common.*, sp.*, pa.*, ad.*, pub.* (public marketing site).
+ * usePortalI18n() prefixes by role except for keys starting with "common.".
  */
 import type { AppLocale, PortalRole } from "./types"
 import { PORTAL_PAGES_AR, PORTAL_PAGES_EN, PORTAL_PAGES_FR } from "./messages-portal-pages"
 import { ADMIN_PAGES_AR, ADMIN_PAGES_EN, ADMIN_PAGES_FR } from "./messages-admin-pages"
+import {
+  EDUVOX_LANDING_LOCALE_KEY,
+  PUBLIC_PAGES_AR,
+  PUBLIC_PAGES_EN,
+  PUBLIC_PAGES_FR,
+} from "./messages-public-pages"
 
 export type MessageTable = Record<string, string>
 
@@ -293,6 +299,7 @@ const ar: MessageTable = {
   "pa.settings.roleBadge": "ولي أمر · بوابة EDUVOX",
   ...PORTAL_PAGES_AR,
   ...ADMIN_PAGES_AR,
+  ...PUBLIC_PAGES_AR,
 }
 
 const en: MessageTable = {
@@ -581,6 +588,7 @@ const en: MessageTable = {
   "pa.settings.roleBadge": "Parent · EDUVOX portal",
   ...PORTAL_PAGES_EN,
   ...ADMIN_PAGES_EN,
+  ...PUBLIC_PAGES_EN,
 }
 
 const fr: MessageTable = {
@@ -805,12 +813,22 @@ const fr: MessageTable = {
   "pa.settings.toastDeleteOk": "Compte supprimé",
   "pa.settings.roleBadge": "Parent · portail EDUVOX",
   ...ADMIN_PAGES_FR,
+  ...PUBLIC_PAGES_FR,
 }
 
 export const MESSAGES: Record<AppLocale, MessageTable> = { ar, en, fr }
 
 export function readLocaleFromStorage(role: PortalRole): AppLocale {
   if (typeof window === "undefined") return "ar"
+  if (role === "public") {
+    try {
+      const v = localStorage.getItem(EDUVOX_LANDING_LOCALE_KEY)
+      if (v === "en" || v === "fr") return v
+      return "ar"
+    } catch {
+      return "ar"
+    }
+  }
   try {
     const raw = localStorage.getItem("adhdAssistCurrentUser")
     if (!raw) return "ar"
@@ -827,7 +845,8 @@ export function readLocaleFromStorage(role: PortalRole): AppLocale {
 }
 
 export function resolveMessage(locale: AppLocale, role: PortalRole, key: string): string {
-  const prefix = role === "specialist" ? "sp" : role === "parent" ? "pa" : "ad"
+  const prefix =
+    role === "specialist" ? "sp" : role === "parent" ? "pa" : role === "admin" ? "ad" : "pub"
   const tryKeys: string[] = []
   if (key.startsWith("common.")) tryKeys.push(key)
   else tryKeys.push(`${prefix}.${key}`)
