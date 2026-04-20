@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { AuthGuard } from "@/components/auth-guard"
+import { AdminIssuesStrip } from "@/components/admin/admin-entity-pages"
 import { fetchApi, getAuthHeaders, publicApiBase } from "@/lib/api"
 import { usePortalI18n } from "@/lib/i18n/i18n-context"
 import { toast } from "sonner"
@@ -34,6 +35,13 @@ interface ParentLookupChild {
   age: number | null
   diagnostic?: string | null
   alexa_code?: string | null
+}
+
+interface SpecialistMeProfile {
+  subscription?: {
+    billing_exempt: boolean
+    new_program_assign_blocked: boolean
+  }
 }
 
 interface ParentLookupResult {
@@ -71,26 +79,45 @@ function AddPatientPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [successData, setSuccessData] = useState<{ tempPassword?: string } | null>(null)
   const [copied, setCopied] = useState(false)
+  const [meProfile, setMeProfile] = useState<SpecialistMeProfile | null>(null)
+
+  const assignBlocked =
+    !!(meProfile?.subscription?.new_program_assign_blocked && !meProfile?.subscription?.billing_exempt)
 
   useEffect(() => {
     let cancelled = false
-    async function loadPrograms() {
-      try {
-        const items = await fetchApi<TrainingProgram[]>("/api/specialists/library")
-        if (!cancelled) {
-          setPrograms(items.filter((item) => item.status === "ready"))
-        }
-      } catch {
-        if (!cancelled) {
-          setPrograms([])
-        }
+    async function load() {
+      const [libRes, meRes] = await Promise.allSettled([
+        fetchApi<TrainingProgram[]>("/api/specialists/library"),
+        fetchApi<SpecialistMeProfile>("/api/specialists/me"),
+      ])
+      if (cancelled) return
+      if (libRes.status === "fulfilled") {
+        setPrograms((libRes.value || []).filter((item) => item.status === "ready"))
+      } else {
+        setPrograms([])
+      }
+      if (meRes.status === "fulfilled") {
+        setMeProfile(meRes.value)
+      } else {
+        setMeProfile(null)
       }
     }
-    loadPrograms()
+    void load()
     return () => {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!meProfile) return
+    const blocked = !!(
+      meProfile.subscription?.new_program_assign_blocked && !meProfile.subscription?.billing_exempt
+    )
+    if (blocked) {
+      setSelectedProgramId((cur) => (cur !== "none" ? "none" : cur))
+    }
+  }, [meProfile])
 
   useEffect(() => {
     const email = parentEmail.trim().toLowerCase()
@@ -155,7 +182,8 @@ function AddPatientPage() {
             name: childName.trim(),
             age: Number(childAge),
             adhd_level: adhdLevel,
-            assigned_program_id: selectedProgramId === "none" ? undefined : Number(selectedProgramId),
+            assigned_program_id:
+              assignBlocked || selectedProgramId === "none" ? undefined : Number(selectedProgramId),
           },
           parent: {
             name: parentName.trim(),
@@ -295,7 +323,12 @@ function AddPatientPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="assignedProgram" className="text-slate-700 dark:text-slate-300">{t("newPatient.program")}</Label>
-                    <Select value={selectedProgramId} onValueChange={setSelectedProgramId}>
+                    {assignBlocked ? (
+                      <AdminIssuesStrip variant="danger" icon={<Lock className="h-4 w-4 text-red-600 dark:text-red-400" aria-hidden />}>
+                        {t("patientDetail.subscriptionAssignBlocked")}
+                      </AdminIssuesStrip>
+                    ) : null}
+                    <Select value={selectedProgramId} onValueChange={setSelectedProgramId} disabled={assignBlocked}>
                       <SelectTrigger id="assignedProgram" className="border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-primary/20">
                         <SelectValue placeholder={t("newPatient.programPh")} />
                       </SelectTrigger>

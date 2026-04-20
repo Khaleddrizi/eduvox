@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useParams } from "next/navigation"
 import { AuthGuard } from "@/components/auth-guard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,10 +21,25 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { fetchApi } from "@/lib/api"
+import { AdminIssuesStrip } from "@/components/admin/admin-entity-pages"
 import { usePortalI18n } from "@/lib/i18n/i18n-context"
 import { readLocaleFromStorage, resolveMessage } from "@/lib/i18n/messages"
 import type { AppLocale } from "@/lib/i18n/types"
-import { UserRound, Users, Mail, Phone, Activity, Pencil, Wand2, Info, Download, CalendarDays, Gauge, Clock3 } from "lucide-react"
+import {
+  UserRound,
+  Users,
+  Mail,
+  Phone,
+  Activity,
+  Pencil,
+  Wand2,
+  Info,
+  Download,
+  CalendarDays,
+  Gauge,
+  Clock3,
+  Lock,
+} from "lucide-react"
 import { toast } from "sonner"
 
 interface PatientDetails {
@@ -68,6 +83,13 @@ interface PatientSession {
   total_questions: number
   accuracy_pct: number
   created_at: string | null
+}
+
+interface SpecialistMeProfile {
+  subscription?: {
+    billing_exempt: boolean
+    new_program_assign_blocked: boolean
+  }
 }
 
 interface TrainingProgram {
@@ -144,6 +166,21 @@ function PatientDetailsPageContent() {
   const [selectedProgramValue, setSelectedProgramValue] = useState("none")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [meProfile, setMeProfile] = useState<SpecialistMeProfile | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchApi<SpecialistMeProfile>("/api/specialists/me")
+      .then((me) => {
+        if (!cancelled) setMeProfile(me)
+      })
+      .catch(() => {
+        //
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     if (!patientId) return
@@ -179,8 +216,24 @@ function PatientDetailsPageContent() {
     }
   }, [patientId])
 
+  const assignBlocked =
+    !!(meProfile?.subscription?.new_program_assign_blocked && !meProfile?.subscription?.billing_exempt)
+
+  const assignWouldSetNewProgram = useMemo(() => {
+    if (!patient) return false
+    const cur = patient.assigned_program_id ?? patient.assigned_program?.id ?? null
+    const sel = selectedProgramValue === "none" ? null : Number(selectedProgramValue)
+    if (sel === null) return false
+    if (cur === sel) return false
+    return true
+  }, [patient, selectedProgramValue])
+
   const handleAssignProgram = async () => {
     if (!patientId || assigningProgram) return
+    if (assignBlocked && assignWouldSetNewProgram) {
+      toast.error(t("patientDetail.subscriptionAssignBlocked"))
+      return
+    }
     setAssigningProgram(true)
     try {
       const updated = await fetchApi<PatientDetails>(`/api/specialists/patients/${patientId}/assign-program`, {
@@ -321,6 +374,11 @@ function PatientDetailsPageContent() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 text-sm">
+                {assignBlocked ? (
+                  <AdminIssuesStrip variant="danger" icon={<Lock className="h-4 w-4 text-red-600 dark:text-red-400" aria-hidden />}>
+                    {t("patientDetail.subscriptionAssignBlocked")}
+                  </AdminIssuesStrip>
+                ) : null}
                 <Select
                   value={selectedProgramValue}
                   onValueChange={setSelectedProgramValue}
@@ -342,7 +400,11 @@ function PatientDetailsPageContent() {
                   <Info className="h-3.5 w-3.5 mt-0.5" />
                   <span>{t("patientDetail.programHint")}</span>
                 </div>
-                <Button className="w-full" onClick={handleAssignProgram} disabled={assigningProgram}>
+                <Button
+                  className="w-full"
+                  onClick={handleAssignProgram}
+                  disabled={assigningProgram || (assignBlocked && assignWouldSetNewProgram)}
+                >
                   <Wand2 className="h-4 w-4 mr-2" />
                   {assigningProgram ? t("patientDetail.assigning") : t("patientDetail.assignBtn")}
                 </Button>

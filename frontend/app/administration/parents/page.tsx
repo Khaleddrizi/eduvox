@@ -1,7 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { AuthGuard } from "@/components/auth-guard"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -18,18 +19,25 @@ import {
   avatarInitial,
   formatJoinedDate,
 } from "@/components/admin/admin-entity-pages"
-import { AlertTriangle, Baby, CheckCircle2, Lock, Plus, ShieldCheck, UserRound, Users } from "lucide-react"
+import { AlertTriangle, Baby, CheckCircle2, CreditCard, Lock, Plus, ShieldCheck, UserRound, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePortalI18n } from "@/lib/i18n/i18n-context"
+import {
+  AdminSubscriptionDialog,
+  subscriptionPillLabel,
+  type AdminSubscriptionRow,
+} from "@/components/admin/admin-subscription-dialog"
 
-interface AdminParent {
-  id: number
+type ParentAccountTab = "standalone" | "linked"
+
+type AdminParent = AdminSubscriptionRow & {
   email: string
   full_name: string | null
   phone: string | null
   created_at: string | null
   children_count: number
   is_active: boolean
+  account_kind?: string
 }
 
 interface ChildRef {
@@ -41,12 +49,28 @@ interface ChildRef {
 const actionBtn =
   "h-auto min-h-0 gap-1 rounded-md px-2.5 py-[5px] text-[11px] font-semibold leading-tight"
 
-function ParentsPageContent() {
+function ParentsPageInner() {
   const { t, locale } = usePortalI18n()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  const accountTab: ParentAccountTab = searchParams.get("account_kind") === "linked" ? "linked" : "standalone"
+
+  const navigateAccountTab = useCallback(
+    (next: ParentAccountTab) => {
+      const qs = new URLSearchParams(searchParams.toString())
+      qs.set("account_kind", next)
+      router.replace(`${pathname}?${qs.toString()}`, { scroll: false })
+    },
+    [pathname, router, searchParams],
+  )
+
   const [items, setItems] = useState<AdminParent[]>([])
   const [allChildren, setAllChildren] = useState<ChildRef[]>([])
   const [search, setSearch] = useState("")
   const [inactiveOnly, setInactiveOnly] = useState(false)
+  const [subDialogOpen, setSubDialogOpen] = useState(false)
+  const [subRow, setSubRow] = useState<AdminParent | null>(null)
 
   const loadChildren = useCallback(async () => {
     try {
@@ -60,21 +84,27 @@ function ParentsPageContent() {
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const data = await fetchApi<AdminParent[]>(`/api/administration/parents?q=${encodeURIComponent(search.trim())}`)
+      const qs = new URLSearchParams()
+      qs.set("q", search.trim())
+      qs.set("account_kind", accountTab)
+      const data = await fetchApi<AdminParent[]>(`/api/administration/parents?${qs.toString()}`)
       if (!cancelled) setItems(data)
     }
     load()
     return () => {
       cancelled = true
     }
-  }, [search])
+  }, [search, accountTab])
 
   useEffect(() => {
     loadChildren()
   }, [loadChildren])
 
   const reload = async () => {
-    const data = await fetchApi<AdminParent[]>(`/api/administration/parents?q=${encodeURIComponent(search.trim())}`)
+    const qs = new URLSearchParams()
+    qs.set("q", search.trim())
+    qs.set("account_kind", accountTab)
+    const data = await fetchApi<AdminParent[]>(`/api/administration/parents?${qs.toString()}`)
     setItems(data)
     await loadChildren()
   }
@@ -126,6 +156,38 @@ function ParentsPageContent() {
     }
   }
 
+  const openSubscription = (row: AdminParent) => {
+    setSubRow(row)
+    setSubDialogOpen(true)
+  }
+
+  const mergeSubscription = (next: AdminSubscriptionRow) => {
+    setItems((prev) =>
+      prev.map((p) =>
+        p.id === next.id
+          ? {
+              ...p,
+              subscription_paid_until: next.subscription_paid_until,
+              subscription_grace_days: next.subscription_grace_days,
+              subscription_billing_exempt: next.subscription_billing_exempt,
+              subscription: next.subscription,
+            }
+          : p,
+      ),
+    )
+    setSubRow((cur) =>
+      cur && cur.id === next.id
+        ? {
+            ...cur,
+            subscription_paid_until: next.subscription_paid_until,
+            subscription_grace_days: next.subscription_grace_days,
+            subscription_billing_exempt: next.subscription_billing_exempt,
+            subscription: next.subscription,
+          }
+        : cur,
+    )
+  }
+
   const resetPassword = async (row: AdminParent) => {
     const ok = window.confirm(t("parents.confirmResetPw"))
     if (!ok) return
@@ -147,22 +209,59 @@ function ParentsPageContent() {
     <div className="mx-auto min-w-0 max-w-7xl space-y-6">
       <AdminManagementHeader
         title={t("parents.title")}
-        description={t("parents.description")}
+        description={accountTab === "standalone" ? t("parents.descriptionStandalone") : t("parents.descriptionLinked")}
         action={
-          <Button asChild className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90">
-            <Link href="/register?role=parent" target="_blank" rel="noopener noreferrer">
-              <Plus className="h-4 w-4" />
-              {t("parents.addCta")}
-            </Link>
-          </Button>
+          accountTab === "standalone" ? (
+            <Button asChild className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90">
+              <Link href="/register?role=parent" target="_blank" rel="noopener noreferrer">
+                <Plus className="h-4 w-4" />
+                {t("parents.addCta")}
+              </Link>
+            </Button>
+          ) : null
         }
       />
+
+      <div
+        className="inline-flex h-10 w-full max-w-md items-center justify-center rounded-lg bg-muted/80 p-1 text-muted-foreground sm:w-auto"
+        role="tablist"
+        aria-label={t("parents.title")}
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={accountTab === "standalone"}
+          className={cn(
+            "inline-flex flex-1 items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-all sm:flex-none",
+            accountTab === "standalone"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+          onClick={() => navigateAccountTab("standalone")}
+        >
+          {t("parents.tabStandalone")}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={accountTab === "linked"}
+          className={cn(
+            "inline-flex flex-1 items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-all sm:flex-none",
+            accountTab === "linked"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+          onClick={() => navigateAccountTab("linked")}
+        >
+          {t("parents.tabLinked")}
+        </button>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <AdminEntityKpiCard
           label={t("parents.kpiTotal")}
           value={items.length}
-          subtitle={t("parents.kpiTotalSub")}
+          subtitle={`${t("parents.kpiTotalSub")} · ${t("parents.kpiInTab")}`}
           icon={UserRound}
           iconWrapClass="bg-teal-500/10"
           iconClass="text-teal-600 dark:text-teal-400"
@@ -243,6 +342,7 @@ function ParentsPageContent() {
                   <TableHead className={th}>{t("parents.colPhone")}</TableHead>
                   <TableHead className={th}>{t("parents.colChildren")}</TableHead>
                   <TableHead className={th}>{t("parents.colStatus")}</TableHead>
+                  <TableHead className={th}>{t("subscription.colShort")}</TableHead>
                   <TableHead className={cn(th, "text-right")}>{t("parents.colActions")}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -315,8 +415,37 @@ function ParentsPageContent() {
                       <TableCell>
                         <StatusPill kind={status} />
                       </TableCell>
+                      <TableCell>
+                        <span
+                          className={cn(
+                            "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                            row.subscription?.library_frozen
+                              ? "bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-200"
+                              : row.subscription?.in_grace_period
+                                ? "bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100"
+                                : row.subscription?.billing_exempt
+                                  ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                                  : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200",
+                          )}
+                        >
+                          {subscriptionPillLabel(row.subscription, t)}
+                        </span>
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex flex-wrap items-center justify-end gap-1.5">
+                          {accountTab === "standalone" ? (
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                actionBtn,
+                                "border-sky-200 text-sky-800 hover:bg-sky-50 dark:border-sky-800 dark:text-sky-200 dark:hover:bg-sky-950/40",
+                              )}
+                              onClick={() => openSubscription(row)}
+                            >
+                              <CreditCard className="h-3 w-3 shrink-0" />
+                              {t("parents.btnSubscription")}
+                            </Button>
+                          ) : null}
                           {row.is_active ? (
                             <Button
                               variant="outline"
@@ -359,8 +488,8 @@ function ParentsPageContent() {
                 })}
                 {!displayParents.length ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-sm text-slate-500">
-                      {t("parents.empty")}
+                    <TableCell colSpan={7} className="py-10 text-center text-sm text-slate-500">
+                      {accountTab === "standalone" ? t("parents.emptyStandalone") : t("parents.emptyLinked")}
                     </TableCell>
                   </TableRow>
                 ) : null}
@@ -369,14 +498,28 @@ function ParentsPageContent() {
           </div>
         </CardContent>
       </Card>
+
+      <AdminSubscriptionDialog
+        open={subDialogOpen}
+        onOpenChange={setSubDialogOpen}
+        mode="parent"
+        row={subRow}
+        onSaved={mergeSubscription}
+      />
     </div>
   )
+}
+
+function ParentsPageFallback() {
+  return <p className="px-4 py-8 text-sm text-muted-foreground">…</p>
 }
 
 export default function ParentsPage() {
   return (
     <AuthGuard requiredAccountType="administration">
-      <ParentsPageContent />
+      <Suspense fallback={<ParentsPageFallback />}>
+        <ParentsPageInner />
+      </Suspense>
     </AuthGuard>
   )
 }

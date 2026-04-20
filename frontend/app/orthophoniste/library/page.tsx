@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fetchApi, getAuthHeaders, publicApiBase } from "@/lib/api"
+import { SubscriptionLibraryBanner } from "@/components/portal/subscription-library-banner"
 import { usePortalI18n } from "@/lib/i18n/i18n-context"
 import { readLocaleFromStorage, resolveMessage } from "@/lib/i18n/messages"
 import type { AppLocale } from "@/lib/i18n/types"
@@ -34,6 +35,17 @@ interface LibraryItem {
   status: string
   question_count: number
   error_message: string | null
+}
+
+interface SpecialistMeProfile {
+  subscription?: {
+    billing_exempt: boolean
+    library_frozen: boolean
+    in_grace_period: boolean
+    new_program_assign_blocked: boolean
+    paid_until: string | null
+    grace_days: number | null
+  }
 }
 
 function localeTag(loc: AppLocale) {
@@ -99,7 +111,11 @@ function LibraryPage() {
     name: "",
     pdf_path: "",
   })
+  const [meProfile, setMeProfile] = useState<SpecialistMeProfile | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const libraryWriteLocked =
+    !!(meProfile?.subscription?.library_frozen && !meProfile?.subscription?.billing_exempt)
 
   const loadItems = async (opts?: { showLoading?: boolean }) => {
     const showLoading = opts?.showLoading ?? true
@@ -118,7 +134,18 @@ function LibraryPage() {
   }
 
   useEffect(() => {
+    let cancelled = false
+    fetchApi<SpecialistMeProfile>("/api/specialists/me")
+      .then((me) => {
+        if (!cancelled) setMeProfile(me)
+      })
+      .catch(() => {
+        //
+      })
     loadItems()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
@@ -157,6 +184,10 @@ function LibraryPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (libraryWriteLocked) {
+      toast.error(t("library.subscriptionFrozen"))
+      return
+    }
     if (!validateForm()) return
     setSaving(true)
     try {
@@ -204,6 +235,10 @@ function LibraryPage() {
   }
 
   const handleDelete = async (id: number) => {
+    if (libraryWriteLocked) {
+      toast.error(t("library.subscriptionFrozen"))
+      return
+    }
     try {
       await fetchApi<{ message: string }>(`/api/specialists/library/${id}`, {
         method: "DELETE",
@@ -216,6 +251,10 @@ function LibraryPage() {
   }
 
   const handleProcess = async (id: number) => {
+    if (libraryWriteLocked) {
+      toast.error(t("library.subscriptionFrozen"))
+      return
+    }
     try {
       const item = await fetchApi<LibraryItem>(`/api/specialists/library/${id}/process`, {
         method: "POST",
@@ -259,6 +298,14 @@ function LibraryPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t("library.title")}</h1>
         <p className="text-sm text-muted-foreground mt-1">{t("library.subtitle")}</p>
+      </div>
+
+      <div className="mb-6">
+        <SubscriptionLibraryBanner
+          subscription={meProfile?.subscription ?? null}
+          messageFrozen={t("library.subscriptionFrozen")}
+          messageGrace={t("library.subscriptionGrace")}
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-3 mb-6">
@@ -322,6 +369,7 @@ function LibraryPage() {
                   id="name"
                   placeholder={t("library.namePh")}
                   value={form.name}
+                  disabled={libraryWriteLocked}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   className={errors.name ? "border-red-500" : ""}
                 />
@@ -333,6 +381,7 @@ function LibraryPage() {
                   id="pdf_path"
                   placeholder="/backend/data/sample.pdf or https://..."
                   value={form.pdf_path}
+                  disabled={libraryWriteLocked}
                   onChange={(e) => setForm((f) => ({ ...f, pdf_path: e.target.value }))}
                 />
               </div>
@@ -359,10 +408,11 @@ function LibraryPage() {
                     e.preventDefault()
                     setIsDragging(false)
                   }}
-                  onDrop={handleDrop}
+                  onDrop={libraryWriteLocked ? undefined : handleDrop}
                   className={[
                     "rounded-xl border bg-slate-50 px-4 py-8 text-center transition-colors",
                     "border-[1.5px] border-dashed border-[#d1d5db]",
+                    libraryWriteLocked ? "pointer-events-none opacity-50" : "",
                     isDragging
                       ? "border-primary bg-blue-50/60 dark:bg-blue-950/10"
                       : "hover:border-primary hover:bg-blue-50/40 dark:hover:bg-blue-950/10",
@@ -373,6 +423,7 @@ function LibraryPage() {
                     {t("library.dropHint")}{" "}
                     <button
                       type="button"
+                      disabled={libraryWriteLocked}
                       onClick={openFilePicker}
                       className="text-primary font-medium hover:underline"
                     >
@@ -390,7 +441,7 @@ function LibraryPage() {
               </div>
               <Button
                 type="submit"
-                disabled={saving}
+                disabled={saving || libraryWriteLocked}
                 className="w-full bg-[#1a8fe3] hover:bg-[#167ec9] text-white"
               >
                 <PlusCircle className="h-4 w-4 mr-2" />
@@ -477,7 +528,12 @@ function LibraryPage() {
                   </div>
                   <div className="flex flex-wrap gap-2 justify-end">
                     {item.pdf_path ? (
-                      <Button variant="outline" size="sm" onClick={() => handleProcess(item.id)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={libraryWriteLocked}
+                        onClick={() => handleProcess(item.id)}
+                      >
                         <RefreshCw className="h-4 w-4 mr-2" />
                         {t("library.reprocess")}
                       </Button>
@@ -485,6 +541,7 @@ function LibraryPage() {
                     <Button
                       variant="outline"
                       size="sm"
+                      disabled={libraryWriteLocked}
                       className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300"
                       onClick={() => handleDelete(item.id)}
                     >

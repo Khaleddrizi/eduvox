@@ -1,10 +1,10 @@
 """
 SQLAlchemy models.
 """
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
-from sqlalchemy import String, Float, Text, ForeignKey, Boolean
+from sqlalchemy import String, Float, Text, ForeignKey, Boolean, Date, Integer
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -39,6 +39,10 @@ class SpecialistModel(Base):
     state_region: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     address_line: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    # Cash billing: admin sets paid_until (last day included); optional per-account grace override.
+    subscription_paid_until: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    subscription_grace_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    subscription_billing_exempt: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
 class ParentModel(Base):
@@ -58,6 +62,9 @@ class ParentModel(Base):
     # linked = under clinician; standalone = self-serve (library/patients use content_specialist_id).
     account_kind: Mapped[str] = mapped_column(String(20), default="linked", nullable=False)
     content_specialist_id: Mapped[Optional[int]] = mapped_column(ForeignKey("specialists.id"), nullable=True, index=True)
+    subscription_paid_until: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    subscription_grace_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    subscription_billing_exempt: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
 class AdministratorModel(Base):

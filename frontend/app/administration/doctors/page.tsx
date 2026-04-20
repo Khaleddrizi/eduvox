@@ -21,6 +21,7 @@ import {
 import {
   AlertTriangle,
   BarChart3,
+  CreditCard,
   Lock,
   Plus,
   ShieldCheck,
@@ -29,9 +30,13 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePortalI18n } from "@/lib/i18n/i18n-context"
+import {
+  AdminSubscriptionDialog,
+  subscriptionPillLabel,
+  type AdminSubscriptionRow,
+} from "@/components/admin/admin-subscription-dialog"
 
-interface AdminDoctor {
-  id: number
+type AdminDoctor = AdminSubscriptionRow & {
   email: string
   full_name: string | null
   phone: string | null
@@ -45,6 +50,8 @@ function DoctorsPageContent() {
   const [items, setItems] = useState<AdminDoctor[]>([])
   const [search, setSearch] = useState("")
   const [inactiveOnly, setInactiveOnly] = useState(false)
+  const [subDialogOpen, setSubDialogOpen] = useState(false)
+  const [subRow, setSubRow] = useState<AdminDoctor | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -103,6 +110,38 @@ function DoctorsPageContent() {
   }
 
   const th = "text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400"
+
+  const openSubscription = (row: AdminDoctor) => {
+    setSubRow(row)
+    setSubDialogOpen(true)
+  }
+
+  const mergeSubscription = (next: AdminSubscriptionRow) => {
+    setItems((prev) =>
+      prev.map((d) =>
+        d.id === next.id
+          ? {
+              ...d,
+              subscription_paid_until: next.subscription_paid_until,
+              subscription_grace_days: next.subscription_grace_days,
+              subscription_billing_exempt: next.subscription_billing_exempt,
+              subscription: next.subscription,
+            }
+          : d,
+      ),
+    )
+    setSubRow((cur) =>
+      cur && cur.id === next.id
+        ? {
+            ...cur,
+            subscription_paid_until: next.subscription_paid_until,
+            subscription_grace_days: next.subscription_grace_days,
+            subscription_billing_exempt: next.subscription_billing_exempt,
+            subscription: next.subscription,
+          }
+        : cur,
+    )
+  }
 
   return (
     <div className="mx-auto min-w-0 max-w-7xl space-y-6">
@@ -188,6 +227,7 @@ function DoctorsPageContent() {
                   <TableHead className={th}>{t("doctors.colPhone")}</TableHead>
                   <TableHead className={th}>{t("doctors.colPatients")}</TableHead>
                   <TableHead className={th}>{t("doctors.colStatus")}</TableHead>
+                  <TableHead className={th}>{t("subscription.colShort")}</TableHead>
                   <TableHead className={cn(th, "text-right")}>{t("doctors.colActions")}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -240,8 +280,33 @@ function DoctorsPageContent() {
                       <TableCell>
                         <StatusPill kind={status} />
                       </TableCell>
+                      <TableCell>
+                        <span
+                          className={cn(
+                            "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                            row.subscription?.library_frozen
+                              ? "bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-200"
+                              : row.subscription?.in_grace_period
+                                ? "bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100"
+                                : row.subscription?.billing_exempt
+                                  ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                                  : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200",
+                          )}
+                        >
+                          {subscriptionPillLabel(row.subscription, t)}
+                        </span>
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex flex-wrap items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 gap-1 border-sky-200 text-sky-800 hover:bg-sky-50 dark:border-sky-800 dark:text-sky-200 dark:hover:bg-sky-950/40"
+                            onClick={() => openSubscription(row)}
+                          >
+                            <CreditCard className="h-3.5 w-3.5" />
+                            {t("doctors.btnSubscription")}
+                          </Button>
                           {row.is_active ? (
                             <Button
                               size="sm"
@@ -278,7 +343,7 @@ function DoctorsPageContent() {
                 })}
                 {!filteredItems.length ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-sm text-slate-500">
+                    <TableCell colSpan={7} className="py-10 text-center text-sm text-slate-500">
                       {t("doctors.empty")}
                     </TableCell>
                   </TableRow>
@@ -288,6 +353,14 @@ function DoctorsPageContent() {
           </div>
         </CardContent>
       </Card>
+
+      <AdminSubscriptionDialog
+        open={subDialogOpen}
+        onOpenChange={setSubDialogOpen}
+        mode="doctor"
+        row={subRow}
+        onSaved={mergeSubscription}
+      />
     </div>
   )
 }

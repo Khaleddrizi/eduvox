@@ -10,10 +10,11 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { getAuthHeaders, publicApiBase } from "@/lib/api"
+import { fetchApi, getAuthHeaders, publicApiBase } from "@/lib/api"
+import { AdminIssuesStrip } from "@/components/admin/admin-entity-pages"
 import { usePortalI18n } from "@/lib/i18n/i18n-context"
 import type { AppLocale } from "@/lib/i18n/types"
-import { Star, KeyRound, BookOpen, Clock } from "lucide-react"
+import { Star, KeyRound, BookOpen, Clock, Lock } from "lucide-react"
 import { toast } from "sonner"
 
 interface ApiChild {
@@ -38,6 +39,17 @@ interface LibraryProgramOption {
   id: number
   name: string
   status: string
+}
+
+interface ParentMeSubscription {
+  billing_exempt: boolean
+  library_frozen: boolean
+  in_grace_period: boolean
+  new_program_assign_blocked: boolean
+}
+
+interface ParentMeProfile {
+  subscription?: ParentMeSubscription
 }
 
 function localeTag(loc: AppLocale) {
@@ -79,6 +91,7 @@ function ChildDetailsContent() {
   const [libraryPrograms, setLibraryPrograms] = useState<LibraryProgramOption[]>([])
   const [assignSelect, setAssignSelect] = useState<string>("")
   const [assigning, setAssigning] = useState(false)
+  const [meProfile, setMeProfile] = useState<ParentMeProfile | null>(null)
 
   useEffect(() => {
     try {
@@ -90,6 +103,21 @@ function ChildDetailsContent() {
       //
     }
   }, [])
+
+  useEffect(() => {
+    if (!isStandalone) return
+    let cancelled = false
+    fetchApi<ParentMeProfile>("/api/parents/me")
+      .then((me) => {
+        if (!cancelled) setMeProfile(me)
+      })
+      .catch(() => {
+        //
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isStandalone])
 
   useEffect(() => {
     if (!childId) return
@@ -150,6 +178,18 @@ function ChildDetailsContent() {
     [child, t],
   )
 
+  const assignBlocked =
+    !!(meProfile?.subscription?.new_program_assign_blocked && !meProfile?.subscription?.billing_exempt)
+
+  const assignWouldSetNewProgram = useMemo(() => {
+    if (!child) return false
+    const cur = child.assigned_program?.id ?? null
+    const sel = assignSelect === "" ? null : Number(assignSelect)
+    if (sel === null) return false
+    if (cur === sel) return false
+    return true
+  }, [child, assignSelect])
+
   const programOptions = useMemo(() => {
     const list = [...libraryPrograms]
     if (child?.assigned_program?.id && !list.some((p) => p.id === child.assigned_program!.id)) {
@@ -168,6 +208,10 @@ function ChildDetailsContent() {
 
   const handleAssignProgram = async () => {
     if (!childId) return
+    if (assignBlocked && assignWouldSetNewProgram) {
+      toast.error(t("childDetail.subscriptionAssignBlocked"))
+      return
+    }
     setAssigning(true)
     try {
       const training_program_id = assignSelect === "" ? null : Number(assignSelect)
@@ -268,6 +312,11 @@ function ChildDetailsContent() {
             <CardTitle className="text-sm">{t("childDetail.assignTitle")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {assignBlocked ? (
+              <AdminIssuesStrip variant="danger" icon={<Lock className="h-4 w-4 text-red-600 dark:text-red-400" aria-hidden />}>
+                {t("childDetail.subscriptionAssignBlocked")}
+              </AdminIssuesStrip>
+            ) : null}
             <p className="text-xs text-muted-foreground">{t("childDetail.assignHint")}</p>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <div className="flex-1 min-w-0">
@@ -285,7 +334,12 @@ function ChildDetailsContent() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="button" onClick={() => void handleAssignProgram()} disabled={assigning} className="shrink-0">
+              <Button
+                type="button"
+                onClick={() => void handleAssignProgram()}
+                disabled={assigning || (assignBlocked && assignWouldSetNewProgram)}
+                className="shrink-0"
+              >
                 {assigning ? t("childDetail.assignSubmitting") : t("childDetail.assignBtn")}
               </Button>
             </div>

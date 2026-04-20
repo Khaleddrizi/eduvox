@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 from backend.database.connection import get_db, init_db
+from backend.core.subscription_access import subscription_state_for_parent_row, subscription_state_for_specialist_row
 from backend.config import DATA_DIR, QUESTION_CACHE_PATH, CHUNK_SIZE, CHUNK_OVERLAP, GROQ_API_KEY
 from backend.database.models import QuizSessionModel, PatientModel, ParentModel, SpecialistModel, AdministratorModel, UserModel, QuestionModel, AuditLogModel, TrainingProgramModel
 from backend.database.repositories import (
@@ -104,6 +105,28 @@ def _verify_password(stored_hash: str, password: str) -> bool:
     return False
 
 
+def _specialist_subscription_dict(s: SpecialistModel) -> dict:
+    return subscription_state_for_specialist_row(
+        bool(getattr(s, "is_shadow", False)),
+        getattr(s, "subscription_paid_until", None),
+        getattr(s, "subscription_grace_days", None),
+        bool(getattr(s, "subscription_billing_exempt", False)),
+    )
+
+
+def _parent_subscription_dict(p: ParentModel) -> dict:
+    return subscription_state_for_parent_row(
+        getattr(p, "account_kind", None) or "linked",
+        getattr(p, "subscription_paid_until", None),
+        getattr(p, "subscription_grace_days", None),
+        bool(getattr(p, "subscription_billing_exempt", False)),
+    )
+
+
+def _subscription_error_response(state: dict, code: str = "subscription_blocked"):
+    return jsonify({"error": code, "subscription": state}), 403
+
+
 def _specialist_payload(s: SpecialistModel) -> dict:
     return {
         "id": s.id,
@@ -117,6 +140,12 @@ def _specialist_payload(s: SpecialistModel) -> dict:
         "address_line": getattr(s, "address_line", None),
         "role": "specialist",
         "created_at": s.created_at.isoformat() if s.created_at else None,
+        "subscription_paid_until": s.subscription_paid_until.isoformat()
+        if getattr(s, "subscription_paid_until", None)
+        else None,
+        "subscription_grace_days": getattr(s, "subscription_grace_days", None),
+        "subscription_billing_exempt": bool(getattr(s, "subscription_billing_exempt", False)),
+        "subscription": _specialist_subscription_dict(s),
     }
 
 
@@ -134,6 +163,12 @@ def _parent_payload(p: ParentModel) -> dict:
         "role": "parent",
         "account_kind": getattr(p, "account_kind", None) or "linked",
         "created_at": p.created_at.isoformat() if p.created_at else None,
+        "subscription_paid_until": p.subscription_paid_until.isoformat()
+        if getattr(p, "subscription_paid_until", None)
+        else None,
+        "subscription_grace_days": getattr(p, "subscription_grace_days", None),
+        "subscription_billing_exempt": bool(getattr(p, "subscription_billing_exempt", False)),
+        "subscription": _parent_subscription_dict(p),
     }
 
 
@@ -546,9 +581,16 @@ def create_web_api() -> Flask:
         with get_db() as db:
             now = datetime.now(timezone.utc)
             today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            total_parents = db.query(ParentModel).count()
+            standalone_parents = db.query(ParentModel).filter(ParentModel.account_kind == "standalone").count()
+            linked_parents = db.query(ParentModel).filter(
+                or_(ParentModel.account_kind == "linked", ParentModel.account_kind.is_(None))
+            ).count()
             payload = {
                 "total_doctors": db.query(SpecialistModel).filter(SpecialistModel.is_shadow.is_(False)).count(),
-                "total_parents": db.query(ParentModel).count(),
+                "total_parents": total_parents,
+                "standalone_parents_count": standalone_parents,
+                "linked_parents_count": linked_parents,
                 "total_children": db.query(PatientModel).count(),
                 "total_alexa_users": db.query(UserModel).count(),
                 "sessions_today": db.query(QuizSessionModel).filter(QuizSessionModel.created_at >= today_start).count(),
@@ -581,6 +623,12 @@ def create_web_api() -> Flask:
                     "created_at": d.created_at.isoformat() if d.created_at else None,
                     "patients_count": db.query(PatientModel).filter(PatientModel.specialist_id == d.id).count(),
                     "is_active": bool(getattr(d, "is_active", True)),
+                    "subscription_paid_until": d.subscription_paid_until.isoformat()
+                    if getattr(d, "subscription_paid_until", None)
+                    else None,
+                    "subscription_grace_days": getattr(d, "subscription_grace_days", None),
+                    "subscription_billing_exempt": bool(getattr(d, "subscription_billing_exempt", False)),
+                    "subscription": _specialist_subscription_dict(d),
                 }
                 for d in doctors
             ])
@@ -591,8 +639,11 @@ def create_web_api() -> Flask:
         if not aid:
             return _auth_required()
         q = (request.args.get("q") or "").strip().lower()
+        kind = (request.args.get("account_kind") or "").strip().lower()
         with get_db() as db:
             query = db.query(ParentModel)
+            if kind in ("standalone", "linked"):
+                query = query.filter(ParentModel.account_kind == kind)
             if q:
                 query = query.filter(
                     or_(
@@ -611,6 +662,12 @@ def create_web_api() -> Flask:
                     "children_count": db.query(PatientModel).filter(PatientModel.parent_id == p.id).count(),
                     "is_active": bool(getattr(p, "is_active", True)),
                     "account_kind": getattr(p, "account_kind", None) or "linked",
+                    "subscription_paid_until": p.subscription_paid_until.isoformat()
+                    if getattr(p, "subscription_paid_until", None)
+                    else None,
+                    "subscription_grace_days": getattr(p, "subscription_grace_days", None),
+                    "subscription_billing_exempt": bool(getattr(p, "subscription_billing_exempt", False)),
+                    "subscription": _parent_subscription_dict(p),
                 }
                 for p in parents
             ])
@@ -707,6 +764,110 @@ def create_web_api() -> Flask:
             _audit_log(db, aid, "parent_password_reset", "parent", parent_id, {})
             db.commit()
             return jsonify({"message": "Temporary password generated", "temporary_password": temp_password})
+
+    @app.route("/api/administration/doctors/<int:doctor_id>/subscription", methods=["PUT"])
+    def admin_set_doctor_subscription(doctor_id: int):
+        aid = _get_admin_id()
+        if not aid:
+            return _auth_required()
+        data = request.get_json() or {}
+        with get_db() as db:
+            doctor = SpecialistRepository(db).get_by_id(doctor_id)
+            if not doctor or bool(getattr(doctor, "is_shadow", False)):
+                return jsonify({"error": "doctor not found"}), 404
+            if "billing_exempt" in data:
+                doctor.subscription_billing_exempt = bool(data.get("billing_exempt"))
+            if "grace_days" in data:
+                g = data.get("grace_days")
+                if g in (None, ""):
+                    doctor.subscription_grace_days = None
+                else:
+                    try:
+                        doctor.subscription_grace_days = max(0, int(g))
+                    except (TypeError, ValueError):
+                        return jsonify({"error": "grace_days must be integer or null"}), 400
+            if "paid_until" in data:
+                pu = data.get("paid_until")
+                if pu in (None, ""):
+                    doctor.subscription_paid_until = None
+                else:
+                    try:
+                        doctor.subscription_paid_until = datetime.strptime(str(pu).strip()[:10], "%Y-%m-%d").date()
+                    except ValueError:
+                        return jsonify({"error": "paid_until must be YYYY-MM-DD or null"}), 400
+            _audit_log(
+                db,
+                aid,
+                "doctor_subscription_update",
+                "doctor",
+                doctor_id,
+                {k: data.get(k) for k in ("paid_until", "grace_days", "billing_exempt") if k in data},
+            )
+            db.commit()
+            db.refresh(doctor)
+            return jsonify(
+                {
+                    "id": doctor.id,
+                    "subscription_paid_until": doctor.subscription_paid_until.isoformat()
+                    if doctor.subscription_paid_until
+                    else None,
+                    "subscription_grace_days": doctor.subscription_grace_days,
+                    "subscription_billing_exempt": doctor.subscription_billing_exempt,
+                    "subscription": _specialist_subscription_dict(doctor),
+                }
+            )
+
+    @app.route("/api/administration/parents/<int:parent_id>/subscription", methods=["PUT"])
+    def admin_set_parent_subscription(parent_id: int):
+        aid = _get_admin_id()
+        if not aid:
+            return _auth_required()
+        data = request.get_json() or {}
+        with get_db() as db:
+            parent = ParentRepository(db).get_by_id(parent_id)
+            if not parent:
+                return jsonify({"error": "parent not found"}), 404
+            if "billing_exempt" in data:
+                parent.subscription_billing_exempt = bool(data.get("billing_exempt"))
+            if "grace_days" in data:
+                g = data.get("grace_days")
+                if g in (None, ""):
+                    parent.subscription_grace_days = None
+                else:
+                    try:
+                        parent.subscription_grace_days = max(0, int(g))
+                    except (TypeError, ValueError):
+                        return jsonify({"error": "grace_days must be integer or null"}), 400
+            if "paid_until" in data:
+                pu = data.get("paid_until")
+                if pu in (None, ""):
+                    parent.subscription_paid_until = None
+                else:
+                    try:
+                        parent.subscription_paid_until = datetime.strptime(str(pu).strip()[:10], "%Y-%m-%d").date()
+                    except ValueError:
+                        return jsonify({"error": "paid_until must be YYYY-MM-DD or null"}), 400
+            _audit_log(
+                db,
+                aid,
+                "parent_subscription_update",
+                "parent",
+                parent_id,
+                {k: data.get(k) for k in ("paid_until", "grace_days", "billing_exempt") if k in data},
+            )
+            db.commit()
+            db.refresh(parent)
+            return jsonify(
+                {
+                    "id": parent.id,
+                    "subscription_paid_until": parent.subscription_paid_until.isoformat()
+                    if parent.subscription_paid_until
+                    else None,
+                    "subscription_grace_days": parent.subscription_grace_days,
+                    "subscription_billing_exempt": parent.subscription_billing_exempt,
+                    "subscription": _parent_subscription_dict(parent),
+                }
+            )
 
     @app.route("/api/administration/children/<int:child_id>/transfer", methods=["PUT"])
     def admin_transfer_child(child_id: int):
@@ -1062,6 +1223,10 @@ def create_web_api() -> Flask:
                     return jsonify({"error": "Selected training program was not found"}), 404
                 if program.status != "ready":
                     return jsonify({"error": "Only ready training programs can be assigned"}), 400
+                spec_row = SpecialistRepository(db).get_by_id(sid)
+                sub = _specialist_subscription_dict(spec_row) if spec_row else subscription_state_for_specialist_row(False, None, None, True)
+                if sub.get("new_program_assign_blocked"):
+                    return _subscription_error_response(sub, "subscription_assign_blocked")
             p = p_repo.create(
                 sid,
                 name,
@@ -1173,6 +1338,11 @@ def create_web_api() -> Flask:
                 return jsonify({"error": "training program not found"}), 404
             if program.status != "ready":
                 return jsonify({"error": "Only ready training programs can be assigned"}), 400
+
+            spec_row = SpecialistRepository(db).get_by_id(sid)
+            sub = _specialist_subscription_dict(spec_row) if spec_row else subscription_state_for_specialist_row(False, None, None, True)
+            if sub.get("new_program_assign_blocked"):
+                return _subscription_error_response(sub, "subscription_assign_blocked")
 
             p_repo.assign_program(patient_id, training_program_id)
             db.commit()
@@ -1381,8 +1551,12 @@ def create_web_api() -> Flask:
             uploaded_file.save(saved_path)
             pdf_path = str(saved_path)
         with get_db() as db:
-            if not SpecialistRepository(db).get_by_id(sid):
+            spec_row = SpecialistRepository(db).get_by_id(sid)
+            if not spec_row:
                 return jsonify({"error": "specialist not found"}), 404
+            sub = _specialist_subscription_dict(spec_row)
+            if sub.get("library_frozen"):
+                return _subscription_error_response(sub, "subscription_library_frozen")
             repo = TrainingProgramRepository(db)
             initial_status = "processing" if pdf_path else "draft"
             item = repo.create(sid, name=name, pdf_path=pdf_path, status=initial_status)
@@ -1401,6 +1575,10 @@ def create_web_api() -> Flask:
         if not sid:
             return _auth_required()
         with get_db() as db:
+            spec_row = SpecialistRepository(db).get_by_id(sid)
+            sub = _specialist_subscription_dict(spec_row) if spec_row else subscription_state_for_specialist_row(False, None, None, True)
+            if sub.get("library_frozen"):
+                return _subscription_error_response(sub, "subscription_library_frozen")
             repo = TrainingProgramRepository(db)
             item = repo.get_by_id(item_id)
             if not item or item.specialist_id != sid:
@@ -1423,6 +1601,10 @@ def create_web_api() -> Flask:
         if not sid:
             return _auth_required()
         with get_db() as db:
+            spec_row = SpecialistRepository(db).get_by_id(sid)
+            sub = _specialist_subscription_dict(spec_row) if spec_row else subscription_state_for_specialist_row(False, None, None, True)
+            if sub.get("library_frozen"):
+                return _subscription_error_response(sub, "subscription_library_frozen")
             repo = TrainingProgramRepository(db)
             item = repo.get_by_id(item_id)
             if not item or item.specialist_id != sid:
@@ -1708,6 +1890,12 @@ def create_web_api() -> Flask:
                 return jsonify({"error": "training program not found"}), 404
             if program.status != "ready":
                 return jsonify({"error": "Only ready training programs can be assigned"}), 400
+            parent_row = ParentRepository(db).get_by_id(pid)
+            if not parent_row:
+                return jsonify({"error": "parent not found"}), 404
+            sub = _parent_subscription_dict(parent_row)
+            if sub.get("new_program_assign_blocked"):
+                return _subscription_error_response(sub, "subscription_assign_blocked")
             p_repo.assign_program(patient_id, training_program_id)
             db.commit()
             fresh = p_repo.get_by_id(patient_id)
@@ -1766,6 +1954,9 @@ def create_web_api() -> Flask:
                 return jsonify({"error": "Library is only available for family (standalone) parent accounts."}), 403
             if not SpecialistRepository(db).get_by_id(sid):
                 return jsonify({"error": "specialist scope not found"}), 404
+            sub = _parent_subscription_dict(parent)
+            if sub.get("library_frozen"):
+                return _subscription_error_response(sub, "subscription_library_frozen")
             repo = TrainingProgramRepository(db)
             initial_status = "processing" if pdf_path else "draft"
             item = repo.create(sid, name=name, pdf_path=pdf_path, status=initial_status)
@@ -1790,6 +1981,9 @@ def create_web_api() -> Flask:
             sid = _parent_standalone_library_sid(parent)
             if not sid:
                 return jsonify({"error": "Library is only available for family (standalone) parent accounts."}), 403
+            sub = _parent_subscription_dict(parent)
+            if sub.get("library_frozen"):
+                return _subscription_error_response(sub, "subscription_library_frozen")
             repo = TrainingProgramRepository(db)
             item = repo.get_by_id(item_id)
             if not item or item.specialist_id != sid:
@@ -1818,6 +2012,9 @@ def create_web_api() -> Flask:
             sid = _parent_standalone_library_sid(parent)
             if not sid:
                 return jsonify({"error": "Library is only available for family (standalone) parent accounts."}), 403
+            sub = _parent_subscription_dict(parent)
+            if sub.get("library_frozen"):
+                return _subscription_error_response(sub, "subscription_library_frozen")
             repo = TrainingProgramRepository(db)
             item = repo.get_by_id(item_id)
             if not item or item.specialist_id != sid:

@@ -67,6 +67,12 @@ def init_db() -> None:
             "ALTER TABLE training_programs ADD COLUMN IF NOT EXISTS error_message TEXT",
             "ALTER TABLE questions ADD COLUMN IF NOT EXISTS training_program_id INTEGER",
             "CREATE TABLE IF NOT EXISTS audit_logs (id SERIAL PRIMARY KEY, admin_id INTEGER NOT NULL, action VARCHAR(100) NOT NULL, target_type VARCHAR(50) NOT NULL, target_id INTEGER NULL, details TEXT NULL, created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW())",
+            "ALTER TABLE specialists ADD COLUMN IF NOT EXISTS subscription_paid_until DATE",
+            "ALTER TABLE specialists ADD COLUMN IF NOT EXISTS subscription_grace_days INTEGER",
+            "ALTER TABLE specialists ADD COLUMN IF NOT EXISTS subscription_billing_exempt BOOLEAN DEFAULT FALSE NOT NULL",
+            "ALTER TABLE parents ADD COLUMN IF NOT EXISTS subscription_paid_until DATE",
+            "ALTER TABLE parents ADD COLUMN IF NOT EXISTS subscription_grace_days INTEGER",
+            "ALTER TABLE parents ADD COLUMN IF NOT EXISTS subscription_billing_exempt BOOLEAN DEFAULT FALSE NOT NULL",
         ]:
             conn.execute(text(stmt))
         conn.commit()

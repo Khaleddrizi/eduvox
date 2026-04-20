@@ -11,6 +11,8 @@ import type { AppLocale } from "@/lib/i18n/types"
 interface AdminOverview {
   total_doctors: number
   total_parents: number
+  standalone_parents_count?: number
+  linked_parents_count?: number
   total_children: number
   total_alexa_users: number
   sessions_today: number

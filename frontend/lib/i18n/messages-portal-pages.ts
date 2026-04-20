@@ -109,6 +109,10 @@ export const PORTAL_PAGES_AR: PortalPagesTable = {
   "sp.library.toastProcessingStarted": "بدأت المعالجة. قد تستغرق دقيقة.",
   "sp.library.toastProcessFail": "فشلت المعالجة",
   "sp.library.toastReprocessFail": "فشلت المعالجة",
+  "sp.library.subscriptionFrozen":
+    "انتهت فترة الاشتراك المدفوعة (ومهلة السماح). يمكنك عرض المكتبة فقط؛ لا يمكن إضافة موارد أو معالجتها أو حذفها. تواصل مع الإدارة بعد تسوية الدفع.",
+  "sp.library.subscriptionGrace":
+    "أنت في مهلة السماح بعد آخر يوم مدفوع. يمكنك عرض المكتبة؛ سيتوقف إنشاء المحتوى الجديد بعد انتهاء المهلة إن لم يُحدَّث الدفع.",
 
   "sp.patientDetail.loadError": "تعذّر تحميل تفاصيل المريض",
   "sp.patientDetail.loading": "جاري تحميل تفاصيل المريض…",
@@ -150,6 +154,8 @@ export const PORTAL_PAGES_AR: PortalPagesTable = {
   "sp.patientDetail.toastProgramRemoved": "تمت إزالة البرنامج عن المريض",
   "sp.patientDetail.toastProgramSet": "تم تعيين البرنامج للمريض",
   "sp.patientDetail.toastProgramErr": "تعذّر تعيين البرنامج",
+  "sp.patientDetail.subscriptionAssignBlocked":
+    "تعيين برنامج جديد غير متاح حالياً بسبب حالة الاشتراك. يمكنك إزالة البرنامج الحالي فقط. راجع الإدارة بعد تسوية الدفع.",
 
   "sp.newPatient.title": "إضافة مريض",
   "sp.newPatient.subtitle": "تسجيل طفل وإنشاء أو ربط حساب ولي أمر",
@@ -246,6 +252,12 @@ export const PORTAL_PAGES_AR: PortalPagesTable = {
   "pa.childDetail.assignBtn": "تعيين",
   "pa.childDetail.assignSubmitting": "جاري التعيين…",
   "pa.childDetail.assignSuccess": "تم تحديث البرنامج.",
+  "pa.childDetail.subscriptionAssignBlocked":
+    "تعيين برنامج جديد غير متاح حالياً بسبب الاشتراك. يمكنك إزالة البرنامج الحالي فقط. راجع الإدارة بعد تسوية الدفع.",
+  "pa.library.subscriptionFrozen":
+    "انتهت فترة الاشتراك المدفوعة (ومهلة السماح). عرض المكتبة فقط؛ لا إضافة أو معالجة أو حذف. راجع الإدارة بعد الدفع.",
+  "pa.library.subscriptionGrace":
+    "مهلة سماح بعد آخر يوم مدفوع. يمكنك الاطلاع؛ سيتوقف إنشاء المحتوى الجديد بعد انتهاء المهلة دون تحديث الدفع.",
   "pa.childDetail.colDate": "التاريخ",
   "pa.childDetail.colScore": "النتيجة",
   "pa.childDetail.colQuestions": "الأسئلة",
@@ -406,6 +418,10 @@ export const PORTAL_PAGES_EN: PortalPagesTable = {
   "sp.library.toastProcessingStarted": "Processing started. It may take a minute.",
   "sp.library.toastProcessFail": "Processing failed",
   "sp.library.toastReprocessFail": "Processing failed",
+  "sp.library.subscriptionFrozen":
+    "Your paid period (and grace) has ended. You can view the library only; adding, processing, or deleting resources is blocked until billing is updated by administration.",
+  "sp.library.subscriptionGrace":
+    "You are in the grace period after the last paid day. You can view the library; new uploads and processing will stop when grace ends unless payment is recorded.",
 
   "sp.patientDetail.loadError": "Could not load patient details",
   "sp.patientDetail.loading": "Loading patient details…",
@@ -447,6 +463,8 @@ export const PORTAL_PAGES_EN: PortalPagesTable = {
   "sp.patientDetail.toastProgramRemoved": "Program removed from patient",
   "sp.patientDetail.toastProgramSet": "Program assigned to patient",
   "sp.patientDetail.toastProgramErr": "Could not assign program",
+  "sp.patientDetail.subscriptionAssignBlocked":
+    "Assigning a new program is not available due to subscription status. You can still clear the current assignment. Contact administration after payment is settled.",
 
   "sp.newPatient.title": "Add patient",
   "sp.newPatient.subtitle": "Register a child and create or link a parent account",
@@ -543,6 +561,12 @@ export const PORTAL_PAGES_EN: PortalPagesTable = {
   "pa.childDetail.assignBtn": "Assign",
   "pa.childDetail.assignSubmitting": "Assigning…",
   "pa.childDetail.assignSuccess": "Program updated.",
+  "pa.childDetail.subscriptionAssignBlocked":
+    "Assigning a new program is not available due to subscription status. You can clear the current program only. Contact administration after payment is settled.",
+  "pa.library.subscriptionFrozen":
+    "Paid period (and grace) has ended. Library is view-only; uploads, processing, and deletes are blocked until administration updates billing.",
+  "pa.library.subscriptionGrace":
+    "Grace period after the last paid day. You can browse; new library actions will stop when grace ends unless billing is updated.",
   "pa.childDetail.colDate": "Date",
   "pa.childDetail.colScore": "Score",
   "pa.childDetail.colQuestions": "Questions",
@@ -745,6 +769,8 @@ export const PORTAL_PAGES_FR: PortalPagesTable = {
   "sp.patientDetail.toastProgramRemoved": "Programme retiré du patient",
   "sp.patientDetail.toastProgramSet": "Programme attribué au patient",
   "sp.patientDetail.toastProgramErr": "Impossible d’attribuer le programme",
+  "sp.patientDetail.subscriptionAssignBlocked":
+    "L’attribution d’un nouveau programme n’est pas disponible (abonnement). Vous pouvez retirer le programme actuel. Contactez l’administration après règlement.",
 
   "sp.newPatient.title": "Ajouter un patient",
   "sp.newPatient.subtitle": "Enregistrer un enfant et créer ou lier un compte parent",
@@ -841,6 +867,12 @@ export const PORTAL_PAGES_FR: PortalPagesTable = {
   "pa.childDetail.assignBtn": "Attribuer",
   "pa.childDetail.assignSubmitting": "Attribution…",
   "pa.childDetail.assignSuccess": "Programme mis à jour.",
+  "pa.childDetail.subscriptionAssignBlocked":
+    "Nouvelle attribution impossible (abonnement). Vous pouvez retirer le programme actuel. Contactez l’administration après règlement.",
+  "pa.library.subscriptionFrozen":
+    "Période payée (et grâce) terminée. Bibliothèque en lecture seule jusqu’à mise à jour par l’administration.",
+  "pa.library.subscriptionGrace":
+    "Délai de grâce après le dernier jour payé. Consultation possible ; actions bloquées à la fin du délai sans paiement enregistré.",
   "pa.childDetail.colDate": "Date",
   "pa.childDetail.colScore": "Score",
   "pa.childDetail.colQuestions": "Questions",

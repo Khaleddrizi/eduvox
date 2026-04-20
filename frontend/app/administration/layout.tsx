@@ -58,12 +58,15 @@ function AdministrationLayoutInner({ children }: { children: React.ReactNode }) 
         items: [{ href: "/administration", label: t("layout.navDashboard"), icon: LayoutDashboard }],
       },
       {
-        label: t("layout.navGroupUsers"),
+        label: t("layout.navGroupCustomers"),
         items: [
           { href: "/administration/doctors", label: t("layout.navDoctors"), icon: Stethoscope },
           { href: "/administration/parents", label: t("layout.navParents"), icon: Users },
-          { href: "/administration/children", label: t("layout.navChildren"), icon: Baby },
         ],
+      },
+      {
+        label: t("layout.navGroupOperations"),
+        items: [{ href: "/administration/children", label: t("layout.navChildren"), icon: Baby }],
       },
       {
         label: t("layout.navGroupSystem"),

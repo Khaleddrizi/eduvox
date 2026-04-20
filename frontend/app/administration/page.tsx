@@ -11,9 +11,11 @@ import {
   Baby,
   Bot,
   ChevronRight,
+  Link2,
   ScrollText,
   Shield,
   Stethoscope,
+  UserPlus,
   Users,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -24,6 +26,8 @@ import type { AppLocale } from "@/lib/i18n/types"
 interface AdminOverview {
   total_doctors: number
   total_parents: number
+  standalone_parents_count?: number
+  linked_parents_count?: number
   total_children: number
   total_alexa_users: number
   sessions_today: number
@@ -211,76 +215,103 @@ function AdministrationHome() {
       {loading ? <p className="text-sm text-slate-500">{t("home.loading")}</p> : null}
 
       {/* KPI rows */}
-      <div className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <KpiCard
-            label={t("home.kpiDoctors")}
-            value={overview?.total_doctors ?? 0}
-            valueClassName="text-blue-600 dark:text-blue-400"
-            subtitle={t("home.kpiDoctorsSub")}
-            icon={Stethoscope}
-            iconWrapClass="bg-blue-500/10"
-            iconClass="text-blue-600 dark:text-blue-400"
-          />
-          <KpiCard
-            label={t("home.kpiParents")}
-            value={overview?.total_parents ?? 0}
-            valueClassName="text-teal-600 dark:text-teal-400"
-            subtitle={t("home.kpiParentsSub")}
-            icon={Users}
-            iconWrapClass="bg-teal-500/10"
-            iconClass="text-teal-600 dark:text-teal-400"
-          />
-          <KpiCard
-            label={t("home.kpiChildren")}
-            value={overview?.total_children ?? 0}
-            valueClassName="text-purple-600 dark:text-purple-400"
-            subtitle={t("home.kpiChildrenSub")}
-            icon={Baby}
-            iconWrapClass="bg-purple-500/10"
-            iconClass="text-purple-600 dark:text-purple-400"
-          />
+      <div className="space-y-8">
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            {t("home.sectionRevenue")}
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <KpiCard
+              label={t("home.kpiDoctors")}
+              value={overview?.total_doctors ?? 0}
+              valueClassName="text-blue-600 dark:text-blue-400"
+              subtitle={t("home.kpiDoctorsSub")}
+              icon={Stethoscope}
+              iconWrapClass="bg-blue-500/10"
+              iconClass="text-blue-600 dark:text-blue-400"
+            />
+            <KpiCard
+              label={t("home.kpiParentsStandalone")}
+              value={overview?.standalone_parents_count ?? 0}
+              valueClassName="text-teal-600 dark:text-teal-400"
+              subtitle={t("home.kpiParentsStandaloneSub")}
+              icon={UserPlus}
+              iconWrapClass="bg-teal-500/10"
+              iconClass="text-teal-600 dark:text-teal-400"
+            />
+            <KpiCard
+              label={t("home.kpiParentsLinked")}
+              value={overview?.linked_parents_count ?? 0}
+              valueClassName="text-indigo-600 dark:text-indigo-400"
+              subtitle={t("home.kpiParentsLinkedSub")}
+              icon={Link2}
+              iconWrapClass="bg-indigo-500/10"
+              iconClass="text-indigo-600 dark:text-indigo-400"
+            />
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {t("home.kpiParentsTotalHint").replace("{n}", String(overview?.total_parents ?? 0))}
+          </p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <KpiCard
-            label={t("home.kpiAlexa")}
-            value={overview?.total_alexa_users ?? 0}
-            valueClassName={alexaZero ? "text-[#d1d5db] dark:text-slate-500" : "text-amber-600 dark:text-amber-400"}
-            subtitle={t("home.kpiAlexaSub")}
-            icon={Bot}
-            iconWrapClass="bg-amber-500/10"
-            iconClass={alexaZero ? "text-[#d1d5db] dark:text-slate-500" : "text-amber-600 dark:text-amber-400"}
-          />
-          <KpiCard
-            label={t("home.kpiSessions")}
-            value={overview?.sessions_today ?? 0}
-            valueClassName={sessionsZero ? "text-[#d1d5db] dark:text-slate-500" : "text-emerald-600 dark:text-emerald-400"}
-            subtitle={t("home.kpiSessionsSub")}
-            icon={Activity}
-            iconWrapClass="bg-emerald-500/10"
-            iconClass={sessionsZero ? "text-[#d1d5db] dark:text-slate-500" : "text-emerald-600 dark:text-emerald-400"}
-          />
-          <KpiCard
-            label={t("home.kpiOrphans")}
-            value={orphanCount}
-            valueClassName={
-              orphanCount === 0 ? "text-[#d1d5db] dark:text-slate-500" : "text-red-600 dark:text-red-400"
-            }
-            subtitle={
-              orphanCount === 0
-                ? t("home.kpiOrphansSubNone")
-                : orphanCount === 1
-                  ? t("home.kpiOrphansSubOne")
-                  : t("home.kpiOrphansSubMany").replace("{count}", String(orphanCount))
-            }
-            subtitleClassName={
-              orphanCount === 0 ? "text-emerald-600 dark:text-emerald-400" : "font-medium text-red-600 dark:text-red-400"
-            }
-            icon={Baby}
-            iconWrapClass={orphanCount === 0 ? "bg-slate-100 dark:bg-slate-800" : "bg-red-500/10"}
-            iconClass={orphanCount === 0 ? "text-slate-400" : "text-red-600 dark:text-red-400"}
-            borderClassName={orphanCount > 0 ? "border-[#fca5a5] dark:border-red-500/50" : undefined}
-          />
+
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            {t("home.sectionOperations")}
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <KpiCard
+              label={t("home.kpiChildren")}
+              value={overview?.total_children ?? 0}
+              valueClassName="text-purple-600 dark:text-purple-400"
+              subtitle={t("home.kpiChildrenSub")}
+              icon={Baby}
+              iconWrapClass="bg-purple-500/10"
+              iconClass="text-purple-600 dark:text-purple-400"
+            />
+            <KpiCard
+              label={t("home.kpiAlexa")}
+              value={overview?.total_alexa_users ?? 0}
+              valueClassName={alexaZero ? "text-[#d1d5db] dark:text-slate-500" : "text-amber-600 dark:text-amber-400"}
+              subtitle={t("home.kpiAlexaSub")}
+              icon={Bot}
+              iconWrapClass="bg-amber-500/10"
+              iconClass={alexaZero ? "text-[#d1d5db] dark:text-slate-500" : "text-amber-600 dark:text-amber-400"}
+            />
+            <KpiCard
+              label={t("home.kpiSessions")}
+              value={overview?.sessions_today ?? 0}
+              valueClassName={sessionsZero ? "text-[#d1d5db] dark:text-slate-500" : "text-emerald-600 dark:text-emerald-400"}
+              subtitle={t("home.kpiSessionsSub")}
+              icon={Activity}
+              iconWrapClass="bg-emerald-500/10"
+              iconClass={sessionsZero ? "text-[#d1d5db] dark:text-slate-500" : "text-emerald-600 dark:text-emerald-400"}
+            />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="lg:col-span-3">
+              <KpiCard
+                label={t("home.kpiOrphans")}
+                value={orphanCount}
+                valueClassName={
+                  orphanCount === 0 ? "text-[#d1d5db] dark:text-slate-500" : "text-red-600 dark:text-red-400"
+                }
+                subtitle={
+                  orphanCount === 0
+                    ? t("home.kpiOrphansSubNone")
+                    : orphanCount === 1
+                      ? t("home.kpiOrphansSubOne")
+                      : t("home.kpiOrphansSubMany").replace("{count}", String(orphanCount))
+                }
+                subtitleClassName={
+                  orphanCount === 0 ? "text-emerald-600 dark:text-emerald-400" : "font-medium text-red-600 dark:text-red-400"
+                }
+                icon={Baby}
+                iconWrapClass={orphanCount === 0 ? "bg-slate-100 dark:bg-slate-800" : "bg-red-500/10"}
+                iconClass={orphanCount === 0 ? "text-slate-400" : "text-red-600 dark:text-red-400"}
+                borderClassName={orphanCount > 0 ? "border-[#fca5a5] dark:border-red-500/50" : undefined}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
