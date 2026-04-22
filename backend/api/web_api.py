@@ -23,7 +23,7 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from backend.database.connection import get_db, init_db
 from backend.core.subscription_access import subscription_state_for_parent_row, subscription_state_for_specialist_row
 from backend.config import DATA_DIR, QUESTION_CACHE_PATH, CHUNK_SIZE, CHUNK_OVERLAP, GROQ_API_KEY
-from backend.database.models import QuizSessionModel, PatientModel, ParentModel, SpecialistModel, AdministratorModel, UserModel, QuestionModel, AuditLogModel, TrainingProgramModel
+from backend.database.models import QuizSessionModel, PatientModel, ParentModel, SpecialistModel, AdministratorModel, UserModel, QuestionModel, AuditLogModel, TrainingProgramModel, StoredFileModel
 from backend.database.repositories import (
     SpecialistRepository,
     ParentRepository,
@@ -40,6 +40,7 @@ AUTH_TOKEN_MAX_AGE_SECONDS = int(os.getenv("AUTH_TOKEN_MAX_AGE_SECONDS", str(14 
 AUTH_TOKEN_SECRET = os.getenv("WEB_API_AUTH_SECRET", "adhd-assist-dev-secret-change-in-prod")
 _token_serializer = URLSafeTimedSerializer(AUTH_TOKEN_SECRET, salt="web-api-auth")
 PROCESSING_STALE_MINUTES = int(os.getenv("PROGRAM_PROCESSING_STALE_MINUTES", "20"))
+LIBRARY_DBFILE_PREFIX = "dbfile://"
 
 AVATAR_DIR = DATA_DIR / "avatars"
 AVATAR_EXT_ALLOWED = {".jpg", ".jpeg", ".png", ".webp"}
@@ -69,6 +70,55 @@ def _delete_user_avatars(prefix: str, user_id: int) -> None:
             pass
 
 
+def _dbfile_path(file_id: int, original_name: str | None = None) -> str:
+    if original_name:
+        safe = secure_filename(original_name) or f"resource-{file_id}.pdf"
+    else:
+        safe = f"resource-{file_id}.pdf"
+    return f"{LIBRARY_DBFILE_PREFIX}{file_id}/{safe}"
+
+
+def _dbfile_id_from_path(pdf_path: str | None) -> int | None:
+    if not pdf_path or not pdf_path.startswith(LIBRARY_DBFILE_PREFIX):
+        return None
+    raw = pdf_path[len(LIBRARY_DBFILE_PREFIX):]
+    first = raw.split("/", 1)[0].strip()
+    try:
+        return int(first)
+    except (TypeError, ValueError):
+        return None
+
+
+def _save_uploaded_pdf_to_db(db: Session, uploaded_file) -> str:
+    raw = uploaded_file.read() if uploaded_file else b""
+    if not raw:
+        raise ValueError("Uploaded PDF is empty")
+    rec = StoredFileModel(
+        original_name=uploaded_file.filename if uploaded_file else None,
+        content_type=getattr(uploaded_file, "content_type", None),
+        data=raw,
+    )
+    db.add(rec)
+    db.flush()
+    return _dbfile_path(rec.id, rec.original_name)
+
+
+def _cleanup_program_pdf_storage(db: Session, pdf_path: str | None) -> None:
+    if not pdf_path:
+        return
+    db_file_id = _dbfile_id_from_path(pdf_path)
+    if db_file_id:
+        db.query(StoredFileModel).filter(StoredFileModel.id == db_file_id).delete(synchronize_session=False)
+        return
+    try:
+        path = Path(pdf_path)
+        uploads_dir = DATA_DIR / "library_uploads"
+        if path.exists() and uploads_dir in path.parents:
+            path.unlink()
+    except Exception:
+        pass
+
+
 def _delete_specialist_cascade(db, specialist_id: int) -> None:
     """Delete specialist-owned data: sessions, Alexa users, patients, programs, questions; then the account."""
     patient_ids = [p.id for p in db.query(PatientModel).filter(PatientModel.specialist_id == specialist_id).all()]
@@ -82,7 +132,10 @@ def _delete_specialist_cascade(db, specialist_id: int) -> None:
         {"assigned_program_id": None},
         synchronize_session=False,
     )
-    prog_ids = [pr.id for pr in db.query(TrainingProgramModel).filter(TrainingProgramModel.specialist_id == specialist_id).all()]
+    programs = db.query(TrainingProgramModel).filter(TrainingProgramModel.specialist_id == specialist_id).all()
+    prog_ids = [pr.id for pr in programs]
+    for pr in programs:
+        _cleanup_program_pdf_storage(db, getattr(pr, "pdf_path", None))
     if prog_ids:
         db.query(QuestionModel).filter(QuestionModel.training_program_id.in_(prog_ids)).delete(synchronize_session=False)
         db.query(TrainingProgramModel).filter(TrainingProgramModel.id.in_(prog_ids)).delete(synchronize_session=False)
@@ -230,7 +283,7 @@ def _attach_program_info(db, patient_dict: dict) -> dict:
 
 def _process_training_program(db, item) -> None:
     # Lazy imports to keep API startup fast on low-memory hosts.
-    from backend.core.pdf_utils import extract_text_from_pdf, chunk_text
+    from backend.core.pdf_utils import extract_text_from_pdf, extract_text_from_pdf_bytes, chunk_text
     from backend.core.quiz_logic import QuizGenerator, QuestionCache
 
     item.status = "processing"
@@ -256,7 +309,14 @@ def _process_training_program(db, item) -> None:
 
     try:
         try:
-            text = extract_text_from_pdf(item.pdf_path)
+            db_file_id = _dbfile_id_from_path(item.pdf_path)
+            if db_file_id:
+                rec = db.query(StoredFileModel).filter(StoredFileModel.id == db_file_id).first()
+                if not rec or not rec.data:
+                    raise FileNotFoundError(f"Stored PDF blob not found (id={db_file_id})")
+                text = extract_text_from_pdf_bytes(rec.data)
+            else:
+                text = extract_text_from_pdf(item.pdf_path)
         except Exception as exc:
             logger.exception("PDF extraction failed for program %s", getattr(item, "id", None))
             item.status = "failed"
@@ -1482,14 +1542,6 @@ def create_web_api() -> Flask:
             uploaded_file = None
         if not name:
             return jsonify({"error": "name required"}), 400
-        if uploaded_file and uploaded_file.filename:
-            uploads_dir = DATA_DIR / "library_uploads"
-            uploads_dir.mkdir(parents=True, exist_ok=True)
-            safe_name = secure_filename(uploaded_file.filename) or f"resource-{secrets.token_hex(4)}.pdf"
-            unique_name = f"{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{secrets.token_hex(4)}-{safe_name}"
-            saved_path = uploads_dir / unique_name
-            uploaded_file.save(saved_path)
-            pdf_path = str(saved_path)
         with get_db() as db:
             spec_row = SpecialistRepository(db).get_by_id(sid)
             if not spec_row:
@@ -1497,6 +1549,11 @@ def create_web_api() -> Flask:
             sub = _specialist_subscription_dict(spec_row)
             if sub.get("library_frozen"):
                 return _subscription_error_response(sub, "subscription_library_frozen")
+            if uploaded_file and uploaded_file.filename:
+                try:
+                    pdf_path = _save_uploaded_pdf_to_db(db, uploaded_file)
+                except ValueError as exc:
+                    return jsonify({"error": str(exc)}), 400
             repo = TrainingProgramRepository(db)
             initial_status = "processing" if pdf_path else "draft"
             item = repo.create(sid, name=name, pdf_path=pdf_path, status=initial_status)
@@ -1558,15 +1615,8 @@ def create_web_api() -> Flask:
                 synchronize_session=False
             )
             repo.delete(item_id)
+            _cleanup_program_pdf_storage(db, pdf_path)
             db.commit()
-            if pdf_path:
-                try:
-                    path = Path(pdf_path)
-                    uploads_dir = DATA_DIR / "library_uploads"
-                    if path.exists() and uploads_dir in path.parents:
-                        path.unlink()
-                except Exception:
-                    pass
             return jsonify({"message": "Library item deleted successfully"})
 
     def _get_parent_id() -> int | None:
@@ -1877,14 +1927,6 @@ def create_web_api() -> Flask:
             uploaded_file = None
         if not name:
             return jsonify({"error": "name required"}), 400
-        if uploaded_file and uploaded_file.filename:
-            uploads_dir = DATA_DIR / "library_uploads"
-            uploads_dir.mkdir(parents=True, exist_ok=True)
-            safe_name = secure_filename(uploaded_file.filename) or f"resource-{secrets.token_hex(4)}.pdf"
-            unique_name = f"{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{secrets.token_hex(4)}-{safe_name}"
-            saved_path = uploads_dir / unique_name
-            uploaded_file.save(saved_path)
-            pdf_path = str(saved_path)
         with get_db() as db:
             parent = ParentRepository(db).get_by_id(pid)
             if not parent:
@@ -1897,6 +1939,11 @@ def create_web_api() -> Flask:
             sub = _parent_subscription_dict(parent)
             if sub.get("library_frozen"):
                 return _subscription_error_response(sub, "subscription_library_frozen")
+            if uploaded_file and uploaded_file.filename:
+                try:
+                    pdf_path = _save_uploaded_pdf_to_db(db, uploaded_file)
+                except ValueError as exc:
+                    return jsonify({"error": str(exc)}), 400
             repo = TrainingProgramRepository(db)
             initial_status = "processing" if pdf_path else "draft"
             item = repo.create(sid, name=name, pdf_path=pdf_path, status=initial_status)
@@ -1966,15 +2013,8 @@ def create_web_api() -> Flask:
             )
             db.query(QuestionModel).filter(QuestionModel.training_program_id == item_id).delete(synchronize_session=False)
             repo.delete(item_id)
+            _cleanup_program_pdf_storage(db, pdf_path)
             db.commit()
-            if pdf_path:
-                try:
-                    path = Path(pdf_path)
-                    uploads_dir = DATA_DIR / "library_uploads"
-                    if path.exists() and uploads_dir in path.parents:
-                        path.unlink()
-                except Exception:
-                    pass
             return jsonify({"message": "Library item deleted successfully"})
 
     @app.route("/api/health")

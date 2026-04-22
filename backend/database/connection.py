@@ -20,6 +20,7 @@ from backend.database.models import (
     TrainingProgramModel,
     QuestionModel,
     QuizSessionModel,
+    StoredFileModel,
 )
 
 logger = logging.getLogger("AlexaQuiz.DB")
@@ -73,6 +74,7 @@ def init_db() -> None:
             "ALTER TABLE parents ADD COLUMN IF NOT EXISTS subscription_paid_until DATE",
             "ALTER TABLE parents ADD COLUMN IF NOT EXISTS subscription_grace_days INTEGER",
             "ALTER TABLE parents ADD COLUMN IF NOT EXISTS subscription_billing_exempt BOOLEAN DEFAULT FALSE NOT NULL",
+            "CREATE TABLE IF NOT EXISTS stored_files (id SERIAL PRIMARY KEY, original_name VARCHAR(255) NULL, content_type VARCHAR(120) NULL, data BYTEA NOT NULL, created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW())",
         ]:
             conn.execute(text(stmt))
         conn.commit()

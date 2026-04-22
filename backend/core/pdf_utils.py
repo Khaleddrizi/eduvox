@@ -24,6 +24,18 @@ def extract_text_from_pdf(path: str | Path) -> str:
     return "\n".join(text_parts)
 
 
+def extract_text_from_pdf_bytes(raw: bytes) -> str:
+    if not raw:
+        raise ValueError("Empty PDF content")
+    import fitz  # PyMuPDF
+
+    text_parts = []
+    with fitz.open(stream=raw, filetype="pdf") as doc:
+        for page in doc:
+            text_parts.append(page.get_text("text"))
+    return "\n".join(text_parts)
+
+
 def chunk_text(text: str, chunk_size: int = 400, chunk_overlap: int = 50) -> List[str]:
     if HAS_LANGCHAIN and RecursiveCharacterTextSplitter is not None:
         splitter = RecursiveCharacterTextSplitter(  # type: ignore[call-arg]

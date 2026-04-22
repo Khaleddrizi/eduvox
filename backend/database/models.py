@@ -4,7 +4,7 @@ SQLAlchemy models.
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from sqlalchemy import String, Float, Text, ForeignKey, Boolean, Date, Integer
+from sqlalchemy import String, Float, Text, ForeignKey, Boolean, Date, Integer, LargeBinary
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -148,4 +148,14 @@ class AuditLogModel(Base):
     target_type: Mapped[str] = mapped_column(String(50), nullable=False)
     target_id: Mapped[Optional[int]] = mapped_column(nullable=True, index=True)
     details: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+
+
+class StoredFileModel(Base):
+    __tablename__ = "stored_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    original_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    content_type: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
