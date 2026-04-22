@@ -51,3 +51,48 @@ cp backend/.env.example backend/.env
 - Alexa: `http://localhost:5002/alexa_quiz`
 - Dashboard: `http://localhost:5003/dashboard`
 - Web API: `http://localhost:5004/api/`
+
+## نشر سحابي (بدون تشغيل محلي)
+
+لجعل Alexa تعمل دائمًا بدون `run.py` على جهازك، انشر **خدمتين Backend منفصلتين**:
+
+### 1) خدمة Web API (لوحة الويب)
+- Start Command:
+```bash
+python run.py
+```
+- في البيئة السحابية، `run.py` يشتغل كـ Web API فقط على `PORT`.
+
+### 2) خدمة Alexa Webhook
+- Start Command:
+```bash
+python -m backend.scripts.run_alexa_server
+```
+- Endpoint المهارة في Alexa Console:
+```text
+https://YOUR-ALEXA-SERVICE-DOMAIN/alexa_quiz
+```
+
+### Environment Variables (على الخدمتين)
+- `DATABASE_URL`
+- `GROQ_API_KEY`
+- `PORT` (تضيفه المنصة تلقائيًا غالبًا)
+
+### نشر تلقائي عبر `render.yaml`
+- الملف جاهز في الجذر: `render.yaml`
+- من Render:
+  1. `New` → `Blueprint`
+  2. اختر نفس repo
+  3. Render سيقرأ `render.yaml` وينشئ خدمتين:
+     - `eduvox-web-api`
+     - `eduvox-alexa`
+  4. أضف القيم السرية يدويًا:
+     - `DATABASE_URL`
+     - `GROQ_API_KEY`
+
+### ملاحظات مهمة للإنتاج
+- لا تستخدم `localhost` أو `ngrok` في Alexa Console للإنتاج.
+- يجب أن يكون endpoint ثابتًا (HTTPS public URL).
+- إذا الخطة المجانية تنوّم الخدمة (sleep/cold start)، قد تظهر رسالة:
+  `there was a problem with the requested skill's response`.
+  الأفضل خدمة بدون sleep لمهارات Alexa.
