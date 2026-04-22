@@ -6,7 +6,6 @@ import json
 import random
 import os
 import mimetypes
-import threading
 import time
 from pathlib import Path
 from collections import defaultdict
@@ -1575,15 +1574,9 @@ def create_web_api() -> Flask:
                 except ValueError as exc:
                     return jsonify({"error": str(exc)}), 400
             repo = TrainingProgramRepository(db)
-            initial_status = "processing" if pdf_path else "draft"
+            initial_status = "queued" if pdf_path else "draft"
             item = repo.create(sid, name=name, pdf_path=pdf_path, status=initial_status)
             db.commit()
-            if pdf_path:
-                threading.Thread(
-                    target=_process_training_program_async,
-                    args=(item.id,),
-                    daemon=True,
-                ).start()
             return jsonify(repo._to_dict(item)), 201
 
     @app.route("/api/specialists/library/<int:item_id>/process", methods=["POST"])
@@ -1602,14 +1595,10 @@ def create_web_api() -> Flask:
                 return jsonify({"error": "library item not found"}), 404
             if not item.pdf_path:
                 return jsonify({"error": "No PDF linked to this library item"}), 400
-            item.status = "processing"
+            item.status = "queued"
             item.error_message = None
+            item.question_count = 0
             db.commit()
-            threading.Thread(
-                target=_process_training_program_async,
-                args=(item.id,),
-                daemon=True,
-            ).start()
             return jsonify(repo._to_dict(item)), 200
 
     @app.route("/api/specialists/library/<int:item_id>", methods=["DELETE"])
@@ -1965,15 +1954,9 @@ def create_web_api() -> Flask:
                 except ValueError as exc:
                     return jsonify({"error": str(exc)}), 400
             repo = TrainingProgramRepository(db)
-            initial_status = "processing" if pdf_path else "draft"
+            initial_status = "queued" if pdf_path else "draft"
             item = repo.create(sid, name=name, pdf_path=pdf_path, status=initial_status)
             db.commit()
-            if pdf_path:
-                threading.Thread(
-                    target=_process_training_program_async,
-                    args=(item.id,),
-                    daemon=True,
-                ).start()
             return jsonify(repo._to_dict(item)), 201
 
     @app.route("/api/parents/library/<int:item_id>/process", methods=["POST"])
@@ -1997,14 +1980,10 @@ def create_web_api() -> Flask:
                 return jsonify({"error": "library item not found"}), 404
             if not item.pdf_path:
                 return jsonify({"error": "No PDF linked to this library item"}), 400
-            item.status = "processing"
+            item.status = "queued"
             item.error_message = None
+            item.question_count = 0
             db.commit()
-            threading.Thread(
-                target=_process_training_program_async,
-                args=(item.id,),
-                daemon=True,
-            ).start()
             return jsonify(repo._to_dict(item)), 200
 
     @app.route("/api/parents/library/<int:item_id>", methods=["DELETE"])

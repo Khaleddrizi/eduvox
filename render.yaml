@@ -22,3 +22,15 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
+
+  - type: worker
+    name: eduvox-program-worker
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m backend.scripts.run_program_worker
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false

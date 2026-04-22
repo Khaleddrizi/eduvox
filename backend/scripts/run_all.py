@@ -48,6 +48,7 @@ from backend.database.connection import init_db
 from backend.core.quiz_logic import QuestionCache, SessionStore, QuizSelector
 from backend.api.alexa_api import create_alexa_app
 from backend.api.web_api import create_web_api
+from backend.scripts.run_program_worker import run_worker_loop
 
 WEB_API_PORT = int(os.getenv("WEB_API_PORT", "5004"))
 
@@ -74,5 +75,6 @@ if __name__ == "__main__":
     shared_selector = QuizSelector(threshold=WEAK_CHUNK_THRESHOLD)
 
     threading.Thread(target=run_web_api, daemon=True).start()
+    threading.Thread(target=run_worker_loop, daemon=True).start()
 
     run_alexa(shared_cache, shared_sessions, shared_selector)

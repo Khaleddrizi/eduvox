@@ -54,7 +54,7 @@ cp backend/.env.example backend/.env
 
 ## نشر سحابي (بدون تشغيل محلي)
 
-لجعل Alexa تعمل دائمًا بدون `run.py` على جهازك، انشر **خدمتين Backend منفصلتين**:
+لجعل Alexa تعمل دائمًا بدون `run.py` على جهازك، انشر **3 خدمات Backend منفصلة**:
 
 ### 1) خدمة Web API (لوحة الويب)
 - Start Command:
@@ -73,7 +73,14 @@ python -m backend.scripts.run_alexa_server
 https://YOUR-ALEXA-SERVICE-DOMAIN/alexa_quiz
 ```
 
-### Environment Variables (على الخدمتين)
+### 3) خدمة Worker لمعالجة PDF وتوليد الأسئلة
+- Start Command:
+```bash
+python -m backend.scripts.run_program_worker
+```
+- هذه الخدمة تلتقط العناصر بحالة `queued` وتحوّلها إلى `ready` أو `failed`.
+
+### Environment Variables (على الخدمات الثلاث)
 - `DATABASE_URL`
 - `GROQ_API_KEY`
 - `PORT` (تضيفه المنصة تلقائيًا غالبًا)
@@ -83,9 +90,10 @@ https://YOUR-ALEXA-SERVICE-DOMAIN/alexa_quiz
 - من Render:
   1. `New` → `Blueprint`
   2. اختر نفس repo
-  3. Render سيقرأ `render.yaml` وينشئ خدمتين:
+  3. Render سيقرأ `render.yaml` وينشئ 3 خدمات:
      - `eduvox-web-api`
      - `eduvox-alexa`
+     - `eduvox-program-worker`
   4. أضف القيم السرية يدويًا:
      - `DATABASE_URL`
      - `GROQ_API_KEY`
