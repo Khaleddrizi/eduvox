@@ -7,6 +7,7 @@ import random
 import os
 import mimetypes
 import threading
+import time
 from pathlib import Path
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
@@ -40,6 +41,7 @@ AUTH_TOKEN_MAX_AGE_SECONDS = int(os.getenv("AUTH_TOKEN_MAX_AGE_SECONDS", str(14 
 AUTH_TOKEN_SECRET = os.getenv("WEB_API_AUTH_SECRET", "adhd-assist-dev-secret-change-in-prod")
 _token_serializer = URLSafeTimedSerializer(AUTH_TOKEN_SECRET, salt="web-api-auth")
 PROCESSING_STALE_MINUTES = int(os.getenv("PROGRAM_PROCESSING_STALE_MINUTES", "20"))
+PROCESSING_MAX_SECONDS = int(os.getenv("PROGRAM_PROCESSING_MAX_SECONDS", "240"))
 LIBRARY_DBFILE_PREFIX = "dbfile://"
 
 AVATAR_DIR = DATA_DIR / "avatars"
@@ -307,6 +309,7 @@ def _process_training_program(db, item) -> None:
         db.flush()
         return
 
+    started_at = time.monotonic()
     try:
         try:
             db_file_id = _dbfile_id_from_path(item.pdf_path)
@@ -339,13 +342,15 @@ def _process_training_program(db, item) -> None:
             raise ValueError("No readable text chunks found in the PDF")
 
         max_questions = min(10, len(chunks))
-        generator = QuizGenerator(api_key=GROQ_API_KEY, timeout_seconds=45.0, max_retries=2, retry_backoff_seconds=1.2)
+        generator = QuizGenerator(api_key=GROQ_API_KEY, timeout_seconds=25.0, max_retries=1, retry_backoff_seconds=1.0)
         used = set()
         generated = []
         attempt = 0
-        max_attempts = max_questions * 4
+        max_attempts = min(max_questions * 2, 12)
 
         while len(generated) < max_questions and attempt < max_attempts:
+            if (time.monotonic() - started_at) > PROCESSING_MAX_SECONDS:
+                raise TimeoutError("Question generation timed out. Please retry with a shorter/clearer PDF.")
             attempt += 1
             idx = random.randint(0, len(chunks) - 1)
             if idx in used:
