@@ -1,8 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,6 +17,7 @@ import { SiteHeader } from "@/components/site-header"
 
 function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { t } = usePortalI18n()
   const [formData, setFormData] = useState({
     email: "",
@@ -25,6 +26,20 @@ function LoginForm() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  const roleFromQuery = (searchParams.get("role") || "").toLowerCase()
+  const preselectedRole: AuthRole =
+    roleFromQuery === "parent"
+      ? "parent"
+      : roleFromQuery === "administration"
+        ? "administration"
+        : roleFromQuery === "therapist" || roleFromQuery === "specialist"
+          ? "specialist"
+          : "specialist"
+
+  useEffect(() => {
+    setFormData((prev) => (prev.role === preselectedRole ? prev : { ...prev, role: preselectedRole }))
+  }, [preselectedRole])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.id]: e.target.value })

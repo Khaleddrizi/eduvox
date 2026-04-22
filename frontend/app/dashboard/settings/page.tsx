@@ -260,7 +260,7 @@ function ParentProfilePageContent() {
   const handleLogoutEverywhere = () => {
     localStorage.removeItem("adhdAssistCurrentUser")
     toast.success(t("settings.toastLogout"))
-    router.replace("/login")
+    router.replace("/login?role=parent")
   }
 
   const handlePreferencesSave = async (e: React.FormEvent) => {

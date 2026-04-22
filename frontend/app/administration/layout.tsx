@@ -98,7 +98,7 @@ function AdministrationLayoutInner({ children }: { children: React.ReactNode }) 
 
   const logout = () => {
     localStorage.removeItem("adhdAssistCurrentUser")
-    router.replace("/login")
+    router.replace("/login?role=administration")
   }
 
   const pickLocale = useCallback(
