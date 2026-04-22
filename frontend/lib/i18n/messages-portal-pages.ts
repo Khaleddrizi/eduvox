@@ -266,7 +266,7 @@ export const PORTAL_PAGES_AR: PortalPagesTable = {
     "انتهت فترة الاشتراك المدفوعة (ومهلة السماح). عرض المكتبة فقط؛ لا إضافة أو معالجة أو حذف. راجع الإدارة بعد الدفع.",
   "pa.library.subscriptionGrace":
     "مهلة سماح بعد آخر يوم مدفوع. يمكنك الاطلاع؛ سيتوقف إنشاء المحتوى الجديد بعد انتهاء المهلة دون تحديث الدفع.",
-  "pa.library.title": "مكتبة التعلّم",
+  "pa.library.title": "مكتبة التعلم",
   "pa.library.subtitle": "برامج جاهزة أو رفع PDF لتوليد اختبارات تناسب أطفالك.",
   "pa.library.kpiTotal": "إجمالي الموارد",
   "pa.library.kpiTotalHint": "في مكتبة عائلتك",
@@ -286,7 +286,8 @@ export const PORTAL_PAGES_AR: PortalPagesTable = {
   "pa.library.listTitle": "موارد المكتبة",
   "pa.library.searchPh": "بحث في الموارد…",
   "pa.library.loading": "جاري تحميل المكتبة…",
-  "pa.library.empty": "لا توجد موارد بعد — يمكنك إضافة البرنامج الجاهز أدناه أو رفع PDF من النموذج.",
+  "pa.library.empty":
+    "لا توجد موارد بعد — إن كانت مكتبتك فارغة يُضاف البرنامج الجاهز تلقائياً عند التحديث؛ أو استخدم الزر أعلاه / ارفع PDF من النموذج.",
   "pa.library.addedOn": "أُضيف في {date}",
   "pa.library.questionsGen": "{n} سؤالًا مُولَّدًا",
   "pa.library.copyPathTitle": "نسخ المسار",
@@ -658,7 +659,8 @@ export const PORTAL_PAGES_EN: PortalPagesTable = {
   "pa.library.listTitle": "Library resources",
   "pa.library.searchPh": "Search resources…",
   "pa.library.loading": "Loading library…",
-  "pa.library.empty": "No resources yet — add the ready program below or upload a PDF in the form.",
+  "pa.library.empty":
+    "No resources yet — if your library is empty, the ready program is added automatically on refresh; or use the button above / upload a PDF in the form.",
   "pa.library.addedOn": "Added on {date}",
   "pa.library.questionsGen": "{n} generated questions",
   "pa.library.copyPathTitle": "Copy path",
@@ -1031,7 +1033,8 @@ export const PORTAL_PAGES_FR: PortalPagesTable = {
   "pa.library.listTitle": "Ressources de la bibliothèque",
   "pa.library.searchPh": "Rechercher…",
   "pa.library.loading": "Chargement de la bibliothèque…",
-  "pa.library.empty": "Aucune ressource — ajoutez le programme prêt ci-dessous ou importez un PDF.",
+  "pa.library.empty":
+    "Aucune ressource — si la bibliothèque est vide, le programme prêt est ajouté automatiquement au rechargement ; ou utilisez le bouton ci-dessus / importez un PDF.",
   "pa.library.addedOn": "Ajouté le {date}",
   "pa.library.questionsGen": "{n} questions générées",
   "pa.library.copyPathTitle": "Copier le chemin",

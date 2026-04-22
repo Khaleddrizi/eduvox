@@ -460,6 +460,7 @@ const en: MessageTable = {
 
   "pa.layout.nav.home": "Home",
   "pa.layout.nav.children": "Children",
+  "pa.layout.nav.library": "Library",
   "pa.layout.nav.reports": "Reports",
   "pa.layout.nav.settings": "Settings",
   "pa.layout.portal": "Parent portal",
