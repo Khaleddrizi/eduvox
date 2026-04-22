@@ -40,8 +40,9 @@ logger = logging.getLogger("AlexaQuiz.WebAPI")
 AUTH_TOKEN_MAX_AGE_SECONDS = int(os.getenv("AUTH_TOKEN_MAX_AGE_SECONDS", str(14 * 24 * 3600)))
 AUTH_TOKEN_SECRET = os.getenv("WEB_API_AUTH_SECRET", "adhd-assist-dev-secret-change-in-prod")
 _token_serializer = URLSafeTimedSerializer(AUTH_TOKEN_SECRET, salt="web-api-auth")
-PROCESSING_STALE_MINUTES = int(os.getenv("PROGRAM_PROCESSING_STALE_MINUTES", "20"))
-PROCESSING_MAX_SECONDS = int(os.getenv("PROGRAM_PROCESSING_MAX_SECONDS", "240"))
+PROCESSING_STALE_MINUTES = int(os.getenv("PROGRAM_PROCESSING_STALE_MINUTES", "8"))
+PROCESSING_MAX_SECONDS = int(os.getenv("PROGRAM_PROCESSING_MAX_SECONDS", "150"))
+PROCESSING_TARGET_QUESTIONS = int(os.getenv("PROGRAM_PROCESSING_TARGET_QUESTIONS", "5"))
 LIBRARY_DBFILE_PREFIX = "dbfile://"
 
 AVATAR_DIR = DATA_DIR / "avatars"
@@ -341,12 +342,20 @@ def _process_training_program(db, item) -> None:
         if not chunks:
             raise ValueError("No readable text chunks found in the PDF")
 
-        max_questions = min(10, len(chunks))
+        max_questions = max(1, min(PROCESSING_TARGET_QUESTIONS, len(chunks)))
         generator = QuizGenerator(api_key=GROQ_API_KEY, timeout_seconds=25.0, max_retries=1, retry_backoff_seconds=1.0)
         used = set()
         generated = []
         attempt = 0
         max_attempts = min(max_questions * 2, 12)
+        logger.info(
+            "Program %s processing: chunks=%s target_questions=%s max_attempts=%s max_seconds=%s",
+            getattr(item, "id", None),
+            len(chunks),
+            max_questions,
+            max_attempts,
+            PROCESSING_MAX_SECONDS,
+        )
 
         while len(generated) < max_questions and attempt < max_attempts:
             if (time.monotonic() - started_at) > PROCESSING_MAX_SECONDS:
@@ -370,6 +379,12 @@ def _process_training_program(db, item) -> None:
                 "times_asked": 0,
                 "times_correct": 0,
             })
+        logger.info(
+            "Program %s generation finished: generated=%s attempts=%s",
+            getattr(item, "id", None),
+            len(generated),
+            attempt,
+        )
 
         if not generated:
             if getattr(generator, "last_error", None):

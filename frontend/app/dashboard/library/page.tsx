@@ -167,7 +167,7 @@ function LibraryPage() {
     if (!items.some((item) => item.status === "processing")) return
     const timer = window.setInterval(() => {
       loadItems({ showLoading: false })
-    }, 8000)
+    }, 15000)
     return () => window.clearInterval(timer)
   }, [items])
 
