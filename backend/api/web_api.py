@@ -415,88 +415,88 @@ def _process_training_program(db, item) -> None:
         db.flush()
 
 
-# Fixed English MCQs for a ready-made library demo (no PDF / no worker).
-_DEMO_ADHD_LIBRARY_NAME = "Demo: ADHD quick quiz"
-_DEMO_ADHD_QUESTIONS: list[dict] = [
+# Ready-made MCQ program for kids with ADHD (English, 3 choices + 1 correct). No PDF / no worker.
+_READYKIDS_ADHD_PROGRAM_BASE = "Kids ADHD: ready quiz (English)"
+_READYKIDS_ADHD_QUESTIONS: list[dict] = [
     {
-        "question": "What does ADHD stand for?",
+        "question": "When homework feels long, what often helps?",
         "options": {
-            "A": "Attention Deficit Hyperactivity Disorder",
-            "B": "Anxiety Disorder Health Diagnosis",
-            "C": "Auditory Delay Hearing Disorder",
+            "A": "A) Take a short break, then do one small part",
+            "B": "B) Never start at all",
+            "C": "C) Throw the paper away",
         },
         "correct": "A",
-        "chunk_text": "ADHD terminology",
+        "chunk_text": "Study habits",
     },
     {
-        "question": "Which of these is a common core symptom of ADHD?",
+        "question": "Many kids with ADHD have extra energy. A little movement while thinking can:",
         "options": {
-            "A": "Difficulty sustaining attention",
-            "B": "Permanent hearing loss",
-            "C": "Photographic memory",
+            "A": "A) Help some kids focus better",
+            "B": "B) Make homework disappear",
+            "C": "C) Replace sleep forever",
         },
         "correct": "A",
-        "chunk_text": "Core symptoms",
+        "chunk_text": "Energy and focus",
     },
     {
-        "question": "ADHD symptoms typically appear or are first recognised in which period of life?",
+        "question": "Using a simple checklist or colors for tasks can:",
         "options": {
-            "A": "Childhood or adolescence",
-            "B": "Only after age 70",
-            "C": "Never; it is not a real condition",
+            "A": "A) Make steps easier to remember",
+            "B": "B) Delete all your tasks",
+            "C": "C) Stop school from happening",
         },
         "correct": "A",
-        "chunk_text": "Developmental context",
+        "chunk_text": "Organization",
     },
     {
-        "question": "How is ADHD best described in clinical settings?",
+        "question": "If you forget what the teacher said, a good next step is:",
         "options": {
-            "A": "A neurodevelopmental condition affecting regulation of attention and activity",
-            "B": "A contagious infection",
-            "C": "A temporary reaction to poor diet only",
+            "A": "A) Ask kindly to hear the instruction again",
+            "B": "B) Give up on the whole year",
+            "C": "C) Pretend you know and never ask",
         },
         "correct": "A",
-        "chunk_text": "Clinical framing",
+        "chunk_text": "Self-advocacy",
     },
     {
-        "question": "Which statement about treatment is most accurate?",
+        "question": "Noise in the room can feel extra distracting. What might help?",
         "options": {
-            "A": "Support often combines education, behavioural strategies, and sometimes medication as prescribed",
-            "B": "Treatment should always be ignored",
-            "C": "Only surgery is recommended for everyone",
+            "A": "A) A quieter spot, headphones, or a calm corner",
+            "B": "B) Only super loud music, always",
+            "C": "C) Never go to class again",
         },
         "correct": "A",
-        "chunk_text": "Treatment overview",
+        "chunk_text": "Environment",
     },
     {
-        "question": "Can adults have ADHD?",
+        "question": "Big projects feel easier when you:",
         "options": {
-            "A": "Yes; many adults were diagnosed in childhood or are diagnosed later",
-            "B": "No; ADHD ends completely at age 18 for everyone",
-            "C": "Only if they never attended school",
+            "A": "A) Break them into tiny steps",
+            "B": "B) Try to finish everything in one minute",
+            "C": "C) Hide them and hope they vanish",
         },
         "correct": "A",
-        "chunk_text": "Lifespan",
+        "chunk_text": "Planning",
     },
     {
-        "question": "Hyperactivity in ADHD may present as:",
+        "question": "A timer can help because:",
         "options": {
-            "A": "Restlessness, fidgeting, or difficulty remaining seated when it is expected",
-            "B": "Always sleeping 20 hours per day",
-            "C": "Complete inability to speak",
+            "A": "A) It shows how long to focus before a break",
+            "B": "B) It eats your pencils",
+            "C": "C) It replaces your teacher",
         },
         "correct": "A",
-        "chunk_text": "Hyperactivity",
+        "chunk_text": "Time tools",
     },
     {
-        "question": "Which classroom or home strategy is often helpful for learners with ADHD?",
+        "question": "Saying to yourself, \"I can try one problem first\" is:",
         "options": {
-            "A": "Clear routines, visual schedules, and movement or attention breaks",
-            "B": "Removing all structure every day",
-            "C": "Avoiding any feedback on performance",
+            "A": "A) A brave way to start small",
+            "B": "B) Not allowed for anyone",
+            "C": "C) Only for adults over 100",
         },
         "correct": "A",
-        "chunk_text": "Environmental supports",
+        "chunk_text": "Growth mindset",
     },
 ]
 
@@ -513,21 +513,21 @@ def _merge_questions_into_disk_cache(program_id: int, generated: list[dict]) -> 
         json.dump(merged, f, indent=2, ensure_ascii=False)
 
 
-def _create_demo_adhd_library_program(db, specialist_id: int) -> TrainingProgramModel:
-    """Insert a ready training program with fixed English questions (duplicates allowed)."""
+def _create_ready_kids_adhd_quiz_program(db, specialist_id: int) -> TrainingProgramModel:
+    """Insert a ready training program: fixed English MCQs for children with ADHD (duplicates allowed)."""
     repo = TrainingProgramRepository(db)
     item = repo.create(
         specialist_id,
-        name=_DEMO_ADHD_LIBRARY_NAME,
+        name=_READYKIDS_ADHD_PROGRAM_BASE,
         pdf_path=None,
         status="draft",
     )
     db.flush()
     pid = item.id
-    item.name = f"{_DEMO_ADHD_LIBRARY_NAME} (#{pid})"
+    item.name = f"{_READYKIDS_ADHD_PROGRAM_BASE} (#{pid})"
     db.flush()
     generated: list[dict] = []
-    for i, spec in enumerate(_DEMO_ADHD_QUESTIONS):
+    for i, spec in enumerate(_READYKIDS_ADHD_QUESTIONS):
         unique_chunk_id = (pid * 1_000_000) + i
         generated.append(
             {
@@ -536,7 +536,7 @@ def _create_demo_adhd_library_program(db, specialist_id: int) -> TrainingProgram
                 "options": spec["options"],
                 "correct": spec["correct"],
                 "chunk_id": unique_chunk_id,
-                "chunk_text": spec.get("chunk_text", "")[:500],
+                "chunk_text": (spec.get("chunk_text") or "")[:500],
                 "times_asked": 0,
                 "times_correct": 0,
             }
@@ -1726,7 +1726,7 @@ def create_web_api() -> Flask:
             sub = _specialist_subscription_dict(spec_row)
             if sub.get("library_frozen"):
                 return _subscription_error_response(sub, "subscription_library_frozen")
-            item = _create_demo_adhd_library_program(db, sid)
+            item = _create_ready_kids_adhd_quiz_program(db, sid)
             db.commit()
             t_repo = TrainingProgramRepository(db)
             return jsonify(t_repo._to_dict(item)), 201
@@ -2128,7 +2128,7 @@ def create_web_api() -> Flask:
             sub = _parent_subscription_dict(parent)
             if sub.get("library_frozen"):
                 return _subscription_error_response(sub, "subscription_library_frozen")
-            item = _create_demo_adhd_library_program(db, sid)
+            item = _create_ready_kids_adhd_quiz_program(db, sid)
             db.commit()
             t_repo = TrainingProgramRepository(db)
             return jsonify(t_repo._to_dict(item)), 201

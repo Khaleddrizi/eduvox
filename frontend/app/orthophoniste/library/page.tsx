@@ -103,7 +103,7 @@ function LibraryPage() {
   const [items, setItems] = useState<LibraryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [demoSaving, setDemoSaving] = useState(false)
+  const [readyKidsSaving, setReadyKidsSaving] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -235,6 +235,26 @@ function LibraryPage() {
     }
   }
 
+  const handleAddReadyKidsProgram = async () => {
+    if (libraryWriteLocked) {
+      toast.error(t("library.subscriptionFrozen"))
+      return
+    }
+    setReadyKidsSaving(true)
+    try {
+      const created = await fetchApi<LibraryItem>("/api/specialists/library/demo-adhd", {
+        method: "POST",
+        body: "{}",
+      })
+      toast.success(t("library.toastReadyKidsOk").replace("{n}", String(created.question_count ?? 0)))
+      await loadItems()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("library.toastReadyKidsFail"))
+    } finally {
+      setReadyKidsSaving(false)
+    }
+  }
+
   const handleDelete = async (id: number) => {
     if (libraryWriteLocked) {
       toast.error(t("library.subscriptionFrozen"))
@@ -248,26 +268,6 @@ function LibraryPage() {
       await loadItems()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("library.toastDeleteFail"))
-    }
-  }
-
-  const handleAddDemoQuiz = async () => {
-    if (libraryWriteLocked) {
-      toast.error(t("library.subscriptionFrozen"))
-      return
-    }
-    setDemoSaving(true)
-    try {
-      const created = await fetchApi<LibraryItem>("/api/specialists/library/demo-adhd", {
-        method: "POST",
-        body: "{}",
-      })
-      toast.success(t("library.toastDemoAdded").replace("{n}", String(created.question_count ?? 0)))
-      await loadItems()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("library.toastDemoFail"))
-    } finally {
-      setDemoSaving(false)
     }
   }
 
@@ -329,6 +329,26 @@ function LibraryPage() {
         />
       </div>
 
+      <div className="mb-6 rounded-xl border border-sky-200 dark:border-sky-500/30 bg-sky-50/90 dark:bg-sky-950/25 px-4 py-4 space-y-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-sky-950 dark:text-sky-100">{t("library.readyKidsTitle")}</p>
+          <p className="text-xs text-sky-900/85 dark:text-sky-200/85 mt-1 leading-relaxed">{t("library.readyKidsHint")}</p>
+          <p className="text-xs text-slate-700 dark:text-slate-300 mt-3 whitespace-pre-line leading-relaxed border-t border-sky-200/80 dark:border-sky-800/50 pt-3">
+            {t("library.readyKidsFlow")}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={readyKidsSaving || libraryWriteLocked}
+          className="w-full sm:w-auto border-sky-300 bg-white hover:bg-sky-50 dark:bg-sky-900/50 dark:border-sky-600"
+          onClick={handleAddReadyKidsProgram}
+        >
+          <Sparkles className="h-4 w-4 mr-2" />
+          {readyKidsSaving ? t("library.adding") : t("library.readyKidsBtn")}
+        </Button>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-3 mb-6">
         <Card className="surface-card">
           <CardContent className="pt-6">
@@ -372,23 +392,6 @@ function LibraryPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
-
-      <div className="mb-6 rounded-xl border border-violet-200 dark:border-violet-500/30 bg-violet-50/90 dark:bg-violet-950/25 px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-violet-950 dark:text-violet-100">{t("library.demoBlockTitle")}</p>
-          <p className="text-xs text-violet-900/80 dark:text-violet-200/85 mt-1 leading-relaxed">{t("library.demoHint")}</p>
-        </div>
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={demoSaving || libraryWriteLocked}
-          className="shrink-0 w-full sm:w-auto border-violet-300 bg-white hover:bg-violet-50 dark:bg-violet-900/50 dark:border-violet-600"
-          onClick={handleAddDemoQuiz}
-        >
-          <Sparkles className="h-4 w-4 mr-2" />
-          {demoSaving ? t("library.adding") : t("library.demoBtn")}
-        </Button>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[38%_62%] items-stretch">
@@ -514,16 +517,16 @@ function LibraryPage() {
               <div className="py-12 flex flex-col items-center text-center text-muted-foreground gap-4 max-w-md mx-auto px-2">
                 <FolderOpen className="h-10 w-10 opacity-60" />
                 <p className="text-sm italic">{t("library.empty")}</p>
-                <p className="text-xs text-slate-600 dark:text-slate-400">{t("library.emptyDemoCta")}</p>
+                <p className="text-xs text-slate-600 dark:text-slate-400 whitespace-pre-line">{t("library.readyKidsFlow")}</p>
                 <Button
                   type="button"
                   variant="secondary"
-                  disabled={demoSaving || libraryWriteLocked}
-                  className="border-violet-300 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/40 dark:border-violet-600"
-                  onClick={handleAddDemoQuiz}
+                  disabled={readyKidsSaving || libraryWriteLocked}
+                  className="border-sky-300 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/40 dark:border-sky-600"
+                  onClick={handleAddReadyKidsProgram}
                 >
                   <Sparkles className="h-4 w-4 mr-2" />
-                  {demoSaving ? t("library.adding") : t("library.demoBtn")}
+                  {readyKidsSaving ? t("library.adding") : t("library.readyKidsBtn")}
                 </Button>
               </div>
             ) : (
