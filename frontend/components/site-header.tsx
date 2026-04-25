@@ -22,7 +22,7 @@ export function SiteHeader({ variant = "marketing" }: { variant?: SiteHeaderVari
     <header className="sticky top-0 z-30 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <Image src="/adhd-logo.png" alt="EDUVOX" width={40} height={40} className="rounded-md" />
+          <Image src="/eduvox-logo.png" alt="EDUVOX" width={130} height={40} className="h-10 w-auto object-contain" />
           <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-500">
             EDUVOX
           </span>

@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { Facebook, Twitter, Instagram, Youtube, Mail, Phone } from "lucide-react"
 import { usePortalI18n } from "@/lib/i18n/i18n-context"
 
@@ -13,9 +14,7 @@ export function SiteFooter() {
       <div className="container py-10">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           <div className="space-y-4">
-            <h3 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-500">
-              EDUVOX
-            </h3>
+            <Image src="/eduvox-logo.png" alt="EDUVOX" width={170} height={52} className="h-12 w-auto object-contain" />
             <p className="text-sm text-muted-foreground">{t("footer.tagline")}</p>
             <div className="flex flex-wrap gap-3">
               <Link href="#" className="text-muted-foreground hover:text-primary transition-colors duration-200">

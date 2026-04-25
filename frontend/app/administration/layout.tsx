@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -123,12 +124,7 @@ function AdministrationLayoutInner({ children }: { children: React.ReactNode }) 
   const sidebarHeader = (
     <div className="border-b border-white/[0.08] px-6 py-6">
       <Link href="/administration" className="flex items-start gap-3 min-w-0">
-        <div
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#1e3a5f]/80 ring-2 ring-indigo-400/35 shadow-[0_0_14px_rgba(99,102,241,0.35)]"
-          aria-hidden
-        >
-          <Shield className="h-5 w-5 text-[#93c5fd]" />
-        </div>
+        <Image src="/eduvox-logo.png" alt="EDUVOX" width={120} height={36} className="h-9 w-auto object-contain shrink-0" />
         <div className="min-w-0 pt-0.5">
           <span className="block text-lg font-semibold tracking-tight text-slate-100 truncate">{t("layout.brandTitle")}</span>
           <p className="mt-1 text-[11px] leading-snug text-slate-500">{t("layout.brandSubtitle")}</p>
@@ -139,12 +135,7 @@ function AdministrationLayoutInner({ children }: { children: React.ReactNode }) 
 
   const mobileBarTitle = (
     <div className="flex min-w-0 items-center gap-2">
-      <div
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#1e3a5f]/80 ring-1 ring-indigo-400/40"
-        aria-hidden
-      >
-        <Shield className="h-4 w-4 text-[#93c5fd]" />
-      </div>
+      <Image src="/eduvox-logo.png" alt="EDUVOX" width={96} height={28} className="h-7 w-auto object-contain shrink-0" />
       <span className="truncate text-base font-semibold text-slate-100">{t("layout.brandTitle")}</span>
     </div>
   )

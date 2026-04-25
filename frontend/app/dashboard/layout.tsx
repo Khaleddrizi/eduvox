@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Home, Settings, LogOut, Users, BarChart3, Upload } from "lucide-react"
@@ -78,6 +79,7 @@ function ParentDashboardLayoutInner({ children }: { children: React.ReactNode })
   const sidebarHeader = (
     <div className="p-6 border-b border-gray-200 dark:border-gray-700">
       <Link href="/dashboard" className="block min-w-0">
+        <Image src="/eduvox-logo.png" alt="EDUVOX" width={140} height={40} className="h-10 w-auto object-contain" />
         <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-500">
           EDUVOX
         </span>
@@ -88,6 +90,7 @@ function ParentDashboardLayoutInner({ children }: { children: React.ReactNode })
 
   const mobileBarTitle = (
     <div className="min-w-0">
+      <Image src="/eduvox-logo.png" alt="EDUVOX" width={110} height={30} className="h-7 w-auto object-contain" />
       <span className="text-base font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-500 truncate block">
         EDUVOX
       </span>
