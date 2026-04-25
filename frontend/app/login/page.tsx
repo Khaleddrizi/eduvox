@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -169,12 +169,23 @@ function LoginForm() {
   )
 }
 
+function LoginLoading() {
+  const { t } = usePortalI18n()
+  return (
+    <div className="app-shell flex min-h-[40vh] flex-1 items-center justify-center px-4 text-sm text-muted-foreground">
+      {t("auth.loadingPage")}
+    </div>
+  )
+}
+
 export default function LoginPage() {
   return (
     <PortalI18nProvider role="public">
       <div className="flex min-h-screen flex-col">
         <SiteHeader variant="login" />
-        <LoginForm />
+        <Suspense fallback={<LoginLoading />}>
+          <LoginForm />
+        </Suspense>
       </div>
     </PortalI18nProvider>
   )
