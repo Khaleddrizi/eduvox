@@ -79,10 +79,7 @@ function ParentDashboardLayoutInner({ children }: { children: React.ReactNode })
   const sidebarHeader = (
     <div className="p-6 border-b border-gray-200 dark:border-gray-700">
       <Link href="/dashboard" className="block min-w-0">
-        <Image src="/eduvox-logo.png" alt="EDUVOX" width={140} height={40} className="h-10 w-auto object-contain" />
-        <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-500">
-          EDUVOX
-        </span>
+        <Image src="/eduvox-logo.png" alt="EDUVOX" width={150} height={44} className="h-11 w-auto object-contain" />
         <p className="mt-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t("layout.portal")}</p>
       </Link>
     </div>
@@ -90,10 +87,7 @@ function ParentDashboardLayoutInner({ children }: { children: React.ReactNode })
 
   const mobileBarTitle = (
     <div className="min-w-0">
-      <Image src="/eduvox-logo.png" alt="EDUVOX" width={110} height={30} className="h-7 w-auto object-contain" />
-      <span className="text-base font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-500 truncate block">
-        EDUVOX
-      </span>
+      <Image src="/eduvox-logo.png" alt="EDUVOX" width={120} height={34} className="h-8 w-auto object-contain" />
       <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground truncate">{t("layout.portal")}</p>
     </div>
   )
