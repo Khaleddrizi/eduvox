@@ -52,6 +52,19 @@ interface ParentMeProfile {
   subscription?: ParentMeSubscription
 }
 
+function normalizeChild(payload: ApiChild | null | undefined): ApiChild | null {
+  if (!payload) return null
+  return {
+    ...payload,
+    stats: {
+      total_sessions: payload.stats?.total_sessions ?? 0,
+      total_correct: payload.stats?.total_correct ?? 0,
+      total_asked: payload.stats?.total_asked ?? 0,
+      avg_accuracy: payload.stats?.avg_accuracy ?? 0,
+    },
+  }
+}
+
 function localeTag(loc: AppLocale) {
   if (loc === "ar") return "ar"
   if (loc === "fr") return "fr-FR"
@@ -132,7 +145,7 @@ function ChildDetailsContent() {
         if (cancelled) return
         if (childRes.ok) {
           const c = (await childRes.json()) as ApiChild
-          setChild(c)
+          setChild(normalizeChild(c))
         }
         if (sessionsRes.ok) setSessions(await sessionsRes.json())
       } finally {
@@ -222,7 +235,7 @@ function ChildDetailsContent() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error((data as { error?: string }).error || "assign failed")
-      setChild(data as ApiChild)
+      setChild(normalizeChild(data as ApiChild))
       toast.success(t("childDetail.assignSuccess"))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "assign failed")
