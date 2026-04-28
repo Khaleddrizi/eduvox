@@ -524,10 +524,10 @@ function PatientDetailsPageContent() {
           <Card className="surface-card">
             <CardHeader className="border-b border-slate-200/70 dark:border-slate-700/70">
               <div className="flex items-center justify-between gap-3">
-                <CardTitle>آخر جلسات الاختبار</CardTitle>
+                <CardTitle>{t("patientDetail.sessionsTitle")}</CardTitle>
                 <Button variant="outline" size="sm" className="text-xs" onClick={exportSessionsCsv} disabled={!sessions.length}>
                   <Download className="h-3.5 w-3.5 mr-1.5" />
-                  تصدير CSV
+                  {t("patientDetail.exportCsv")}
                 </Button>
               </div>
             </CardHeader>
