@@ -2220,13 +2220,20 @@ def create_web_api() -> Flask:
             db.commit()
             return jsonify({"message": "Library item deleted successfully"})
 
+    _web_health = {"service": "Web API", "status": "running"}
+
     @app.route("/api/health")
     def health():
-        return jsonify({"service": "Web API", "status": "running"})
+        return jsonify(_web_health)
+
+    @app.route("/health")
+    def health_probe():
+        # Render and other hosts often default health checks to `/health`.
+        return jsonify(_web_health)
 
     @app.route("/")
     def root():
         # Some hosts (e.g. Render) probe `/` by default; keep a lightweight 200 here.
-        return jsonify({"service": "Web API", "status": "running"})
+        return jsonify(_web_health)
 
     return app

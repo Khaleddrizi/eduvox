@@ -3,6 +3,7 @@ services:
     name: eduvox-web-api
     runtime: python
     plan: starter
+    healthCheckPath: /health
     buildCommand: pip install -r requirements.txt
     startCommand: python run.py
     envVars:
@@ -15,6 +16,7 @@ services:
     name: eduvox-alexa
     runtime: python
     plan: starter
+    healthCheckPath: /health
     buildCommand: pip install -r requirements.txt
     startCommand: python -m backend.scripts.run_alexa_server
     envVars:
