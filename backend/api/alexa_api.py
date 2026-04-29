@@ -42,13 +42,24 @@ def _extract_answer(intent: dict) -> str:
                 val = per_auth[0]["values"][0].get("value", {}).get("name", "")
         except (KeyError, IndexError, TypeError):
             pass
-    val = (val or "").strip().upper()
-    if val in ("A", "B", "C"):
-        return val
-    if val and val[0] in ("A", "B", "C"):
-        return val[0]
-    m = re.search(r"\b([ABC])\b", val, re.IGNORECASE)
-    return m.group(1).upper() if m else val[:1] if val else ""
+    val = (val or "").strip()
+    if not val:
+        return ""
+    # Spoken forms like "answer A.", "the answer is B.", trailing punctuation from ASR.
+    cleaned = re.sub(r"^\s*(the\s+)?answer\s+(is\s+)?", "", val, flags=re.IGNORECASE).strip()
+    cleaned = cleaned.strip(".,;:?!\"'`").strip()
+    upper = cleaned.upper()
+    if upper in ("A", "B", "C"):
+        return upper
+    if len(upper) == 1 and upper in "ABC":
+        return upper
+    m = re.search(r"\b([ABC])\b", upper)
+    if m:
+        return m.group(1).upper()
+    # Short legacy utterances only (avoid treating "answer" as starting with A).
+    if upper and upper[0] in "ABC" and len(upper) <= 3:
+        return upper[0]
+    return ""
 
 
 def _extract_code(intent: dict) -> str:
