@@ -14,7 +14,7 @@ export function SiteFooter() {
       <div className="container py-10">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           <div className="space-y-4">
-            <Image src="/eduvox-logo.png" alt="EDUVOX" width={170} height={52} className="h-12 w-auto object-contain" />
+            <Image src="/eduvox-logo.png" alt="Atheeria" width={170} height={52} className="h-12 w-auto object-contain" />
             <p className="text-sm text-muted-foreground">{t("footer.tagline")}</p>
             <div className="flex flex-wrap gap-3">
               <Link href="#" className="text-muted-foreground hover:text-primary transition-colors duration-200">
