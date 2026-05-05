@@ -124,7 +124,7 @@ function AdministrationLayoutInner({ children }: { children: React.ReactNode }) 
   const sidebarHeader = (
     <div className="border-b border-white/[0.08] px-6 py-6">
       <Link href="/administration" className="flex items-start gap-3 min-w-0">
-        <Image src="/eduvox-logo.png" alt="Atheeria" width={130} height={38} className="h-10 w-auto object-contain shrink-0" />
+        <Image src="/atheeria-logo.png" alt="Atheeria" width={130} height={38} className="h-10 w-auto object-contain shrink-0" />
         <div className="min-w-0 pt-0.5">
           <span className="block text-lg font-semibold tracking-tight text-slate-100 truncate">{t("layout.brandTitle")}</span>
           <p className="mt-1 text-[11px] leading-snug text-slate-500">{t("layout.brandSubtitle")}</p>
@@ -135,7 +135,7 @@ function AdministrationLayoutInner({ children }: { children: React.ReactNode }) 
 
   const mobileBarTitle = (
     <div className="flex min-w-0 items-center gap-2">
-      <Image src="/eduvox-logo.png" alt="Atheeria" width={104} height={30} className="h-8 w-auto object-contain shrink-0" />
+      <Image src="/atheeria-logo.png" alt="Atheeria" width={104} height={30} className="h-8 w-auto object-contain shrink-0" />
       <span className="truncate text-base font-semibold text-slate-100">{t("layout.brandTitle")}</span>
     </div>
   )

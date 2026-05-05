@@ -8,7 +8,7 @@ export const PUBLIC_PAGES_AR: Record<string, string> = {
   "pub.nav.login": "تسجيل الدخول",
   "pub.nav.register": "إنشاء حساب مهني",
   "pub.hero.badge": "دعم معرفي مخصص لاضطراب فرط الحركة وتشتت الانتباه",
-  "pub.hero.title": "EDUVOX — مساعدة ذكية عبر الصوت والذكاء الاصطناعي",
+  "pub.hero.title": "Atheeria — مساعدة ذكية عبر الصوت والذكاء الاصطناعي",
   "pub.hero.subtitle":
     "منصة رقمية تجمع بين المتابعة المهنية، التمارين التفاعلية، والمساعد الصوتي لدعم التركيز والانتباه والاستقلالية اليومية للأطفال والمراهقين المصابين باضطراب فرط الحركة وتشتت الانتباه (ADHD).",
   "pub.hero.ctaLogin": "تسجيل الدخول",
@@ -83,7 +83,7 @@ export const PUBLIC_PAGES_AR: Record<string, string> = {
   "pub.footer.linkContact": "تواصل معنا",
   "pub.footer.contact": "التواصل",
   "pub.footer.ctaContact": "تواصل معنا",
-  "pub.footer.copyright": "© {year} EDUVOX. جميع الحقوق محفوظة.",
+  "pub.footer.copyright": "© {year} Atheeria. جميع الحقوق محفوظة.",
   "pub.footer.bottomWho": "من نحن",
   "pub.footer.bottomContact": "تواصل",
   "pub.footer.bottomLegal": "الإشعارات القانونية",
@@ -130,7 +130,7 @@ export const PUBLIC_PAGES_EN: Record<string, string> = {
   "pub.nav.login": "Log in",
   "pub.nav.register": "Create professional account",
   "pub.hero.badge": "Cognitive support tailored for ADHD",
-  "pub.hero.title": "EDUVOX — smart help through voice and AI",
+  "pub.hero.title": "Atheeria — smart help through voice and AI",
   "pub.hero.subtitle":
     "A digital platform combining professional follow-up, interactive exercises, and a voice assistant to support focus, attention, and daily independence for children and teens with ADHD.",
   "pub.hero.ctaLogin": "Log in",
@@ -205,7 +205,7 @@ export const PUBLIC_PAGES_EN: Record<string, string> = {
   "pub.footer.linkContact": "Contact us",
   "pub.footer.contact": "Contact",
   "pub.footer.ctaContact": "Contact us",
-  "pub.footer.copyright": "© {year} EDUVOX. All rights reserved.",
+  "pub.footer.copyright": "© {year} Atheeria. All rights reserved.",
   "pub.footer.bottomWho": "About",
   "pub.footer.bottomContact": "Contact",
   "pub.footer.bottomLegal": "Legal notices",
@@ -252,7 +252,7 @@ export const PUBLIC_PAGES_FR: Record<string, string> = {
   "pub.nav.login": "Connexion",
   "pub.nav.register": "Créer un compte professionnel",
   "pub.hero.badge": "Soutien cognitif adapté au TDAH",
-  "pub.hero.title": "EDUVOX — aide intelligente par la voix et l’IA",
+  "pub.hero.title": "Atheeria — aide intelligente par la voix et l’IA",
   "pub.hero.subtitle":
     "Une plateforme numérique qui combine suivi professionnel, exercices interactifs et assistant vocal pour soutenir attention, concentration et autonomie au quotidien des enfants et adolescents avec TDAH.",
   "pub.hero.ctaLogin": "Connexion",
@@ -328,7 +328,7 @@ export const PUBLIC_PAGES_FR: Record<string, string> = {
   "pub.footer.linkContact": "Nous contacter",
   "pub.footer.contact": "Contact",
   "pub.footer.ctaContact": "Nous contacter",
-  "pub.footer.copyright": "© {year} EDUVOX. Tous droits réservés.",
+  "pub.footer.copyright": "© {year} Atheeria. Tous droits réservés.",
   "pub.footer.bottomWho": "À propos",
   "pub.footer.bottomContact": "Contact",
   "pub.footer.bottomLegal": "Mentions légales",
@@ -367,4 +367,4 @@ export const PUBLIC_PAGES_FR: Record<string, string> = {
   "pub.auth.register.footerLoginLink": "Connexion",
 }
 
-export const EDUVOX_LANDING_LOCALE_KEY = "eduvoxLandingLocale"
+export const ATHEERIA_LANDING_LOCALE_KEY = "atheeriaLandingLocale"

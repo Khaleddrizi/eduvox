@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { AppLocale, PortalRole } from "./types"
 import { readLocaleFromStorage, resolveMessage } from "./messages"
 
-export const EDUVOX_LOCALE_EVENT = "eduvox-locale-changed"
+export const ATHEERIA_LOCALE_EVENT = "atheeria-locale-changed"
 
 type Ctx = {
   locale: AppLocale
@@ -32,10 +32,10 @@ export function PortalI18nProvider({ role, children }: { role: PortalRole; child
 
   useEffect(() => {
     const onChange = () => refreshLocale()
-    window.addEventListener(EDUVOX_LOCALE_EVENT, onChange)
+    window.addEventListener(ATHEERIA_LOCALE_EVENT, onChange)
     window.addEventListener("storage", onChange)
     return () => {
-      window.removeEventListener(EDUVOX_LOCALE_EVENT, onChange)
+      window.removeEventListener(ATHEERIA_LOCALE_EVENT, onChange)
       window.removeEventListener("storage", onChange)
     }
   }, [refreshLocale])
@@ -60,6 +60,6 @@ export function usePortalI18n() {
 
 export function notifyLocaleChanged() {
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event(EDUVOX_LOCALE_EVENT))
+    window.dispatchEvent(new Event(ATHEERIA_LOCALE_EVENT))
   }
 }

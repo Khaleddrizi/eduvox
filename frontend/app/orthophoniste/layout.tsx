@@ -58,13 +58,13 @@ function OrthophonisteLayoutInner({ children }: { children: React.ReactNode }) {
   const sidebarHeader = (
     <div className="p-6 border-b border-gray-200 dark:border-gray-700">
       <Link href="/" className="flex items-center gap-2 min-w-0">
-        <Image src="/eduvox-logo.png" alt="Atheeria" width={126} height={38} className="h-9 w-auto object-contain shrink-0" />
+        <Image src="/atheeria-logo.png" alt="Atheeria" width={126} height={38} className="h-9 w-auto object-contain shrink-0" />
       </Link>
     </div>
   )
 
   const mobileBarTitle = (
-    <Image src="/eduvox-logo.png" alt="Atheeria" width={104} height={30} className="h-7 w-auto object-contain" />
+    <Image src="/atheeria-logo.png" alt="Atheeria" width={104} height={30} className="h-7 w-auto object-contain" />
   )
 
   const sidebarFooter = (

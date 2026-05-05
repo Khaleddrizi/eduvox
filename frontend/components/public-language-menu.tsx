@@ -11,13 +11,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Languages } from "lucide-react"
-import { EDUVOX_LANDING_LOCALE_KEY } from "@/lib/i18n/messages-public-pages"
+import { ATHEERIA_LANDING_LOCALE_KEY } from "@/lib/i18n/messages-public-pages"
 import { notifyLocaleChanged, usePortalI18n } from "@/lib/i18n/i18n-context"
 import type { AppLocale } from "@/lib/i18n/types"
 
 function persistPublicLocale(next: AppLocale) {
   try {
-    localStorage.setItem(EDUVOX_LANDING_LOCALE_KEY, next)
+    localStorage.setItem(ATHEERIA_LANDING_LOCALE_KEY, next)
     notifyLocaleChanged()
   } catch {
     //

@@ -6,7 +6,7 @@ import type { AppLocale, PortalRole } from "./types"
 import { PORTAL_PAGES_AR, PORTAL_PAGES_EN, PORTAL_PAGES_FR } from "./messages-portal-pages"
 import { ADMIN_PAGES_AR, ADMIN_PAGES_EN, ADMIN_PAGES_FR } from "./messages-admin-pages"
 import {
-  EDUVOX_LANDING_LOCALE_KEY,
+  ATHEERIA_LANDING_LOCALE_KEY,
   PUBLIC_PAGES_AR,
   PUBLIC_PAGES_EN,
   PUBLIC_PAGES_FR,
@@ -27,7 +27,7 @@ const ar: MessageTable = {
   "common.dash": "—",
   "common.specialist": "مختص",
   "common.parent": "ولي أمر",
-  "common.eduvoxPortal": "بوابة EDUVOX",
+  "common.eduvoxPortal": "بوابة Atheeria",
   "common.severityMild": "خفيف",
   "common.severityModerate": "متوسط",
   "common.severitySevere": "شديد",
@@ -297,7 +297,7 @@ const ar: MessageTable = {
   "pa.settings.langAr": "العربية",
   "pa.settings.langFr": "Français",
   "pa.settings.langEn": "English",
-  "pa.settings.roleBadge": "ولي أمر · بوابة EDUVOX",
+  "pa.settings.roleBadge": "ولي أمر · بوابة Atheeria",
   ...PORTAL_PAGES_AR,
   ...ADMIN_PAGES_AR,
   ...PUBLIC_PAGES_AR,
@@ -316,7 +316,7 @@ const en: MessageTable = {
   "common.dash": "—",
   "common.specialist": "Specialist",
   "common.parent": "Parent",
-  "common.eduvoxPortal": "EDUVOX portal",
+  "common.eduvoxPortal": "Atheeria portal",
   "common.severityMild": "Mild",
   "common.severityModerate": "Moderate",
   "common.severitySevere": "Severe",
@@ -587,7 +587,7 @@ const en: MessageTable = {
   "pa.settings.langAr": "Arabic",
   "pa.settings.langFr": "Français",
   "pa.settings.langEn": "English",
-  "pa.settings.roleBadge": "Parent · EDUVOX portal",
+  "pa.settings.roleBadge": "Parent · Atheeria portal",
   ...PORTAL_PAGES_EN,
   ...ADMIN_PAGES_EN,
   ...PUBLIC_PAGES_EN,
@@ -608,7 +608,7 @@ const fr: MessageTable = {
   "common.dash": "—",
   "common.specialist": "Spécialiste",
   "common.parent": "Parent",
-  "common.eduvoxPortal": "Portail EDUVOX",
+  "common.eduvoxPortal": "Portail Atheeria",
   "common.severityMild": "Léger",
   "common.severityModerate": "Modéré",
   "common.severitySevere": "Sévère",
@@ -814,7 +814,7 @@ const fr: MessageTable = {
   "pa.settings.toastLogout": "Déconnecté. Reconnectez-vous sur les autres appareils.",
   "pa.settings.toastPrefsOk": "Langue et région enregistrées",
   "pa.settings.toastDeleteOk": "Compte supprimé",
-  "pa.settings.roleBadge": "Parent · portail EDUVOX",
+  "pa.settings.roleBadge": "Parent · portail Atheeria",
   ...ADMIN_PAGES_FR,
   ...PUBLIC_PAGES_FR,
 }
@@ -825,7 +825,7 @@ export function readLocaleFromStorage(role: PortalRole): AppLocale {
   if (typeof window === "undefined") return "ar"
   if (role === "public") {
     try {
-      const v = localStorage.getItem(EDUVOX_LANDING_LOCALE_KEY)
+      const v = localStorage.getItem(ATHEERIA_LANDING_LOCALE_KEY)
       if (v === "en" || v === "fr") return v
       return "ar"
     } catch {

@@ -14,7 +14,7 @@ export function SiteFooter() {
       <div className="container py-10">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           <div className="space-y-4">
-            <Image src="/eduvox-logo.png" alt="Atheeria" width={170} height={52} className="h-12 w-auto object-contain" />
+            <Image src="/atheeria-logo.png" alt="Atheeria" width={170} height={52} className="h-12 w-auto object-contain" />
             <p className="text-sm text-muted-foreground">{t("footer.tagline")}</p>
             <div className="flex flex-wrap gap-3">
               <Link href="#" className="text-muted-foreground hover:text-primary transition-colors duration-200">
@@ -90,7 +90,7 @@ export function SiteFooter() {
             <ul className="space-y-2 text-sm">
               <li className="flex items-center gap-2 text-muted-foreground">
                 <Mail size={16} className="text-primary" />
-                <span>contact@eduvox.com</span>
+                <span>contact@atheeria.com</span>
               </li>
               <li className="flex items-center gap-2 text-muted-foreground">
                 <Phone size={16} className="text-primary" />
