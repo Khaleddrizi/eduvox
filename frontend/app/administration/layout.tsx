@@ -123,14 +123,20 @@ function AdministrationLayoutInner({ children }: { children: React.ReactNode }) 
 
   const sidebarHeader = (
     <div className="border-b border-white/[0.08] px-6 py-6">
-      <Link href="/administration" className="inline-flex min-w-0 items-center">
-        <BrandLogo size="lg" className="shrink-0" />
+      <Link href="/administration" className="inline-flex min-w-0 items-center rounded-xl border border-[#60a5fa]/20 bg-[#1e3a5f]/35 px-3 py-2">
+        <BrandLogo
+          size="lg"
+          className="shrink-0 brightness-110 saturate-125 drop-shadow-[0_2px_8px_rgba(56,189,248,0.35)]"
+        />
       </Link>
     </div>
   )
 
   const mobileBarTitle = (
-    <BrandLogo size="md" className="shrink-0" />
+    <BrandLogo
+      size="md"
+      className="shrink-0 brightness-110 saturate-125 drop-shadow-[0_2px_8px_rgba(56,189,248,0.35)]"
+    />
   )
 
   const sidebarFooter = (
