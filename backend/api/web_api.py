@@ -415,88 +415,88 @@ def _process_training_program(db, item) -> None:
         db.flush()
 
 
-# Ready-made MCQ program for kids with ADHD (English, 3 choices + 1 correct). No PDF / no worker.
-_READYKIDS_ADHD_PROGRAM_BASE = "Kids ADHD: ready quiz (English)"
+# Ready-made MCQ program for kids with ADHD (Arabic, 3 choices + 1 correct). No PDF / no worker.
+_READYKIDS_ADHD_PROGRAM_BASE = "برنامج ADHD جاهز للأطفال (عربي)"
 _READYKIDS_ADHD_QUESTIONS: list[dict] = [
     {
-        "question": "When homework feels long, what often helps?",
+        "question": "عندما يبدو الواجب طويلاً، ما الذي يساعد غالباً؟",
         "options": {
-            "A": "A) Take a short break, then do one small part",
-            "B": "B) Never start at all",
-            "C": "C) Throw the paper away",
+            "A": "أ) خذ استراحة قصيرة ثم ابدأ بجزء صغير",
+            "B": "ب) لا تبدأ أبداً",
+            "C": "ج) ارمِ الورقة",
         },
         "correct": "A",
-        "chunk_text": "Study habits",
+        "chunk_text": "عادات الدراسة",
     },
     {
-        "question": "Many kids with ADHD have extra energy. A little movement while thinking can:",
+        "question": "كثير من الأطفال لديهم طاقة زائدة. القليل من الحركة أثناء التفكير قد:",
         "options": {
-            "A": "A) Help some kids focus better",
-            "B": "B) Make homework disappear",
-            "C": "C) Replace sleep forever",
+            "A": "أ) يساعد بعض الأطفال على التركيز",
+            "B": "ب) يجعل الواجب يختفي",
+            "C": "ج) يستبدل النوم للأبد",
         },
         "correct": "A",
-        "chunk_text": "Energy and focus",
+        "chunk_text": "الطاقة والتركيز",
     },
     {
-        "question": "Using a simple checklist or colors for tasks can:",
+        "question": "استخدام قائمة بسيطة أو ألوان للمهام قد:",
         "options": {
-            "A": "A) Make steps easier to remember",
-            "B": "B) Delete all your tasks",
-            "C": "C) Stop school from happening",
+            "A": "أ) يجعل الخطوات أسهل للتذكر",
+            "B": "ب) يحذف كل مهامك",
+            "C": "ج) يوقف المدرسة",
         },
         "correct": "A",
-        "chunk_text": "Organization",
+        "chunk_text": "التنظيم",
     },
     {
-        "question": "If you forget what the teacher said, a good next step is:",
+        "question": "إذا نسيت ما قاله المعلم، الخطوة الجيدة هي:",
         "options": {
-            "A": "A) Ask kindly to hear the instruction again",
-            "B": "B) Give up on the whole year",
-            "C": "C) Pretend you know and never ask",
+            "A": "أ) اطلب بلطف إعادة التعليمات",
+            "B": "ب) استسلم للسنة كاملة",
+            "C": "ج) تظاهر أنك تفهم ولا تسأل",
         },
         "correct": "A",
-        "chunk_text": "Self-advocacy",
+        "chunk_text": "التواصل مع المعلم",
     },
     {
-        "question": "Noise in the room can feel extra distracting. What might help?",
+        "question": "الضجيج في الغرفة قد يشتت الانتباه. ما الذي قد يساعد؟",
         "options": {
-            "A": "A) A quieter spot, headphones, or a calm corner",
-            "B": "B) Only super loud music, always",
-            "C": "C) Never go to class again",
+            "A": "أ) مكان هادئ أو سماعات أو ركن هادئ",
+            "B": "ب) موسيقى عالية جداً دائماً",
+            "C": "ج) لا تذهب للمدرسة أبداً",
         },
         "correct": "A",
-        "chunk_text": "Environment",
+        "chunk_text": "البيئة",
     },
     {
-        "question": "Big projects feel easier when you:",
+        "question": "المشاريع الكبيرة تصبح أسهل عندما:",
         "options": {
-            "A": "A) Break them into tiny steps",
-            "B": "B) Try to finish everything in one minute",
-            "C": "C) Hide them and hope they vanish",
+            "A": "أ) تقسمها إلى خطوات صغيرة",
+            "B": "ب) تحاول إنهاء كل شيء في دقيقة",
+            "C": "ج) تخفيها وتتمنى أن تختفي",
         },
         "correct": "A",
-        "chunk_text": "Planning",
+        "chunk_text": "التخطيط",
     },
     {
-        "question": "A timer can help because:",
+        "question": "المؤقت يساعد لأنه:",
         "options": {
-            "A": "A) It shows how long to focus before a break",
-            "B": "B) It eats your pencils",
-            "C": "C) It replaces your teacher",
+            "A": "أ) يوضح مدة التركيز قبل الاستراحة",
+            "B": "ب) يأكل أقلامك",
+            "C": "ج) يستبدل المعلم",
         },
         "correct": "A",
-        "chunk_text": "Time tools",
+        "chunk_text": "إدارة الوقت",
     },
     {
-        "question": "Saying to yourself, \"I can try one problem first\" is:",
+        "question": "أن تقول لنفسك: سأحاول مسألة واحدة أولاً، هذا:",
         "options": {
-            "A": "A) A brave way to start small",
-            "B": "B) Not allowed for anyone",
-            "C": "C) Only for adults over 100",
+            "A": "أ) طريقة شجاعة للبدء بخطوة صغيرة",
+            "B": "ب) غير مسموح لأحد",
+            "C": "ج) للكبار فوق مئة سنة فقط",
         },
         "correct": "A",
-        "chunk_text": "Growth mindset",
+        "chunk_text": "عقلية النمو",
     },
 ]
 
@@ -514,7 +514,7 @@ def _merge_questions_into_disk_cache(program_id: int, generated: list[dict]) -> 
 
 
 def _create_ready_kids_adhd_quiz_program(db, specialist_id: int) -> TrainingProgramModel:
-    """Insert a ready training program: fixed English MCQs for children with ADHD (duplicates allowed)."""
+    """Insert a ready training program: fixed Arabic MCQs for children with ADHD (duplicates allowed)."""
     repo = TrainingProgramRepository(db)
     item = repo.create(
         specialist_id,

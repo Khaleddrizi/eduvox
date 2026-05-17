@@ -60,29 +60,30 @@ python -m backend.scripts.run_ngrok
 1. ادخل إلى [Alexa Developer Console](https://developer.amazon.com/alexa/console/ask)
 2. أنشئ مهارة جديدة (Custom)
 3. **Endpoint:** اختر HTTPS وأدخل: `https://xxxx.ngrok.io/alexa_quiz`
-4. **Intents** — أضف هذه الأهداف:
+4. **Locale:** أضف **Arabic (SA)** أو **Arabic (EG)** واجعله الأساسي للمهارة.
+5. **Intents** — أضف هذه الأهداف (عربي):
 
-| Intent             | Utterances                                                                 | Slot  |
-|--------------------|----------------------------------------------------------------------------|-------|
-| LinkPatientIntent  | `link {code}`, `link my code {code}`, `my code is {code}`, `link is {code}` | code  |
-| StartQuizIntent    | `give me a quiz`, `start quiz`, `quiz`                                     | -     |
-| AnswerIntent       | `{answer}`                                                                 | answer|
-| EndQuizIntent      | `end quiz`, `finish quiz`                                                  | -     |
+| Intent             | Utterances (أمثلة)                                                                 | Slot  |
+|--------------------|-------------------------------------------------------------------------------------|-------|
+| LinkPatientIntent  | `اربط {code}`, `اربط الرمز {code}`, `الرمز هو {code}`, `كودي {code}`               | code  |
+| StartQuizIntent    | `ابدأ الاختبار`, `ابدأ اختبار`, `اختبار`                                          | -     |
+| AnswerIntent       | `{answer}`, `الجواب {answer}`, `إجابتي {answer}`                                    | answer|
+| EndQuizIntent      | `انهِ الاختبار`, `أنهِ الاختبار`, `انهاء الاختبار`                                  | -     |
 
-- Slot **code**: نوع `AMAZON.SearchQuery` (للقبض على رموز مثل 8B6A671B أو A B C 1 2 3 4)
-- Slot **answer**: نوع يمكن أن يأخذ A أو B أو C
+- Slot **code**: نوع `AMAZON.SearchQuery` (للقبض على رموز مثل 8B6A671B حرفاً بحرف)
+- Slot **answer**: نوع يقبل **أ** أو **ب** أو **ج** (ويمكن أيضاً A أو B أو C)
 
-5. Build the skill
+6. Build the skill
 
 ---
 
 ### 6. سير التجربة كطفل
 
 1. افتح المهارة على Echo أو في [Alexa Simulator](https://developer.amazon.com/alexa/console/ask/test)
-2. ستطلب منك Alexa **الكود أولاً**. قل مثلاً: **"link 8B6A671B"** أو **"link is 8B6A671B"** (استبدل بكود المريض)
-3. بعد الربط، قل: **"give me a quiz"**
-4. أجب A أو B أو C على كل سؤال
-5. قل: **"end quiz"** لإنهاء ورؤية النتيجة — ثم اذهب إلى الموقع لرؤية النتائج
+2. ستطلب منك Alexa **الكود أولاً**. قل مثلاً: **"اربط 8 B 6 A 6 7 1 B"** (استبدل بكود المريض)
+3. بعد الربط، قل: **"ابدأ الاختبار"**
+4. أجب **أ** أو **ب** أو **ج** على كل سؤال
+5. قل: **"انهِ الاختبار"** لإنهاء ورؤية النتيجة — ثم اذهب إلى الموقع لرؤية النتائج
 
 ---
 

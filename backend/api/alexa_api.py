@@ -4,17 +4,22 @@ import logging
 from flask import Flask, request, jsonify
 
 from backend.config import QUESTION_CACHE_PATH, WEAK_CHUNK_THRESHOLD
-from backend.core.quiz_logic import QuestionCache, SessionStore, QuizSelector, QuizService
+from backend.core.quiz_logic import (
+    QuestionCache,
+    SessionStore,
+    QuizSelector,
+    QuizService,
+    normalize_mcq_letter,
+)
 from backend.database.connection import get_db
 from backend.database.repositories import UserRepository, SessionRepository, QuestionRepository, PatientRepository, TrainingProgramRepository
 from backend.database.models import QuestionModel
 
 logger = logging.getLogger("AlexaQuiz")
 
-# Short reprompts keep the mic open and reduce awkward silence after long TTS.
-_REPROMPT_LINK = "Say link, then spell your eight-character code."
-_REPROMPT_QUIZ = "Say give me a quiz to start."
-_REPROMPT_ANSWER = "What's your answer? Say A, B, or C."
+_REPROMPT_LINK = "قل: اربط، ثم انطق رمزك المكوّن من ثمانية أحرف."
+_REPROMPT_QUIZ = "قل: ابدأ الاختبار."
+_REPROMPT_ANSWER = "ما إجابتك؟ قل: أ، أو ب، أو ج."
 
 
 def build_alexa_response(
@@ -45,18 +50,16 @@ def _extract_answer(intent: dict) -> str:
     val = (val or "").strip()
     if not val:
         return ""
-    # Spoken forms like "answer A.", "the answer is B.", trailing punctuation from ASR.
     cleaned = re.sub(r"^\s*(the\s+)?answer\s+(is\s+)?", "", val, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r"^\s*(الجواب|إجابة|اجابة)\s*(هي\s*)?", "", cleaned).strip()
     cleaned = cleaned.strip(".,;:?!\"'`").strip()
+    letter = normalize_mcq_letter(cleaned)
+    if letter:
+        return letter
     upper = cleaned.upper()
-    if upper in ("A", "B", "C"):
-        return upper
-    if len(upper) == 1 and upper in "ABC":
-        return upper
     m = re.search(r"\b([ABC])\b", upper)
     if m:
         return m.group(1).upper()
-    # Short legacy utterances only (avoid treating "answer" as starting with A).
     if upper and upper[0] in "ABC" and len(upper) <= 3:
         return upper[0]
     return ""
@@ -74,16 +77,13 @@ def _normalize_code(raw: str) -> str:
     if not text:
         return ""
 
-    # Remove common words that Alexa may keep inside the SearchQuery slot.
-    text = re.sub(r"\b(LINK|CODE|IS|MY)\b", " ", text)
+    text = re.sub(r"\b(LINK|CODE|IS|MY|ربط|كود|الرمز)\b", " ", text, flags=re.IGNORECASE)
 
-    # Keep only letters and digits, then search for the actual 8-char patient code.
     compact = re.sub(r"[^A-Z0-9]", "", text)
     match = re.search(r"[A-F0-9]{8}", compact)
     if match:
         return match.group(0)
 
-    # Fallback for unexpected captures: use the trailing 8 chars if possible.
     return compact[-8:] if len(compact) >= 8 else compact
 
 
@@ -116,9 +116,9 @@ def create_alexa_app(
 
             if request_type == "LaunchRequest":
                 return build_alexa_response(
-                    "Welcome to ADHD Assist. Say link, then spell your eight-character code. "
-                    "Example: link, 8, B, 6, A, 6, 7, 1, B. "
-                    "You will find the code in the parent or doctor dashboard.",
+                    "مرحباً بك في أثيريا. قل: اربط، ثم انطق رمز الطفل المكوّن من ثمانية أحرف. "
+                    "مثال: اربط، 8، B، 6، A، 6، 7، 1، B. "
+                    "ستجد الرمز في لوحة ولي الأمر أو المختص.",
                     end_session=False,
                     reprompt=_REPROMPT_LINK,
                 )
@@ -130,28 +130,28 @@ def create_alexa_app(
                 if intent_name == "AMAZON.HelpIntent":
                     if not _is_user_linked(user_id):
                         return build_alexa_response(
-                            "Say link, then your code, letter by letter. "
-                            "Then say give me a quiz to start.",
+                            "قل: اربط، ثم انطق الرمز حرفاً بحرف. "
+                            "بعدها قل: ابدأ الاختبار.",
                             reprompt=_REPROMPT_LINK,
                         )
                     return build_alexa_response(
-                        "Say give me a quiz to start. Answer with A, B, or C. "
-                        "Say end quiz when you are finished to hear your score.",
+                        "قل: ابدأ الاختبار. أجب بـ أ، أو ب، أو ج. "
+                        "عند الانتهاء قل: أنهِ الاختبار لسماع نتيجتك.",
                         reprompt=_REPROMPT_QUIZ,
                     )
 
                 if intent_name in ("AMAZON.StopIntent", "AMAZON.CancelIntent"):
                     _sessions.pop(session_key)
-                    return build_alexa_response("Quiz stopped. Goodbye!", end_session=True)
+                    return build_alexa_response("تم إيقاف الاختبار. إلى اللقاء!", end_session=True)
 
                 if intent_name == "AMAZON.FallbackIntent":
                     if not _is_user_linked(user_id):
                         return build_alexa_response(
-                            "Say link, then spell your code.",
+                            "قل: اربط، ثم انطق رمز الطفل.",
                             reprompt=_REPROMPT_LINK,
                         )
                     return build_alexa_response(
-                        "Try: give me a quiz.",
+                        "جرّب: ابدأ الاختبار.",
                         reprompt=_REPROMPT_QUIZ,
                     )
 
@@ -159,7 +159,7 @@ def create_alexa_app(
                     code = _extract_code(intent)
                     if not code:
                         return build_alexa_response(
-                            "Say link, then your eight-character code, one letter or digit at a time.",
+                            "قل: اربط، ثم انطق الرمز المكوّن من ثمانية أحرف، حرفاً بحرف.",
                             reprompt=_REPROMPT_LINK,
                         )
                     ok = _link_alexa_to_patient(user_id, code)
@@ -167,24 +167,24 @@ def create_alexa_app(
                         patient_name, program_name = _get_linked_patient_context(user_id)
                         details = ""
                         if patient_name and program_name:
-                            details = f" Linked to {patient_name}. Program: {program_name}."
+                            details = f" تم الربط مع {patient_name}. البرنامج: {program_name}."
                         elif patient_name:
-                            details = f" Linked to {patient_name}."
+                            details = f" تم الربط مع {patient_name}."
                         return build_alexa_response(
-                            "You are linked. Say give me a quiz to start. "
-                            "Your results will show on the web dashboard."
+                            "تم الربط بنجاح. قل: ابدأ الاختبار. "
+                            "ستظهر نتائجك في لوحة المتابعة على الموقع."
                             + details,
                             reprompt=_REPROMPT_QUIZ,
                         )
                     return build_alexa_response(
-                        "That code was not found. Check the dashboard and try again.",
+                        "لم أجد هذا الرمز. تحقق من اللوحة وحاول مرة أخرى.",
                         reprompt=_REPROMPT_LINK,
                     )
 
                 if intent_name == "StartQuizIntent":
                     if not _is_user_linked(user_id):
                         return build_alexa_response(
-                            "Link your account first. Say link, then your code from the dashboard.",
+                            "اربط حساب الطفل أولاً. قل: اربط، ثم الرمز من اللوحة.",
                             reprompt=_REPROMPT_LINK,
                         )
                     questions, error_message = _get_patient_quiz_questions(user_id)
@@ -197,7 +197,7 @@ def create_alexa_app(
                     text = _quiz.start_quiz(session_key, questions=questions)
                     if not text:
                         return build_alexa_response(
-                            "No questions are ready yet. Ask the doctor to assign a ready program.",
+                            "لا توجد أسئلة جاهزة بعد. اطلب من المختص تعيين برنامج جاهز.",
                             reprompt=_REPROMPT_QUIZ,
                         )
                     if linked_patient_id:
@@ -211,11 +211,7 @@ def create_alexa_app(
                 if intent_name == "AnswerIntent":
                     answer = _extract_answer(intent)
                     text, end, quiz_reprompt = _quiz.answer_and_next(session_key, answer)
-                    rp = (
-                        None
-                        if end
-                        else (quiz_reprompt or _REPROMPT_ANSWER)
-                    )
+                    rp = None if end else (quiz_reprompt or _REPROMPT_ANSWER)
                     return build_alexa_response(text, end_session=end, reprompt=rp)
 
                 if intent_name == "EndQuizIntent":
@@ -224,11 +220,11 @@ def create_alexa_app(
                         _save_session_to_db(user_id, snapshot)
                     result_msg = text
                     if snapshot and _is_user_linked(user_id):
-                        result_msg = text + " Check the web dashboard to see your progress."
+                        result_msg = text + " راجع لوحة المتابعة على الموقع لمعرفة التقدم."
                     return build_alexa_response(result_msg, end_session=end)
 
             return build_alexa_response(
-                "Say give me a quiz to start.",
+                "قل: ابدأ الاختبار.",
                 end_session=False,
                 reprompt=_REPROMPT_QUIZ if _is_user_linked(user_id) else _REPROMPT_LINK,
             )
@@ -236,7 +232,7 @@ def create_alexa_app(
         except Exception as e:
             logger.exception("Alexa webhook error: %s", e)
             return build_alexa_response(
-                "A server error occurred. Please try again.", end_session=True
+                "حدث خطأ في الخادم. حاول مرة أخرى.", end_session=True
             )
 
     _alexa_probe = {"service": "Alexa Quiz API", "status": "running"}
@@ -248,7 +244,7 @@ def create_alexa_app(
 
     @app.route("/test", methods=["GET"])
     def test():
-        return jsonify({"service": "Alexa Quiz API", "status": "running"})
+        return jsonify(_alexa_probe)
 
     return app
 
@@ -263,7 +259,6 @@ def _save_session_to_db(alexa_user_id: str, snapshot: dict) -> None:
         with get_db() as db:
             user_repo = UserRepository(db)
             session_repo = SessionRepository(db)
-            q_repo = QuestionRepository(db)
 
             user = user_repo.get_or_create(alexa_user_id)
             target_patient_id = snapshot.get("patient_id") or user.patient_id
@@ -321,24 +316,24 @@ def _get_patient_quiz_questions(alexa_user_id: str) -> tuple[list[dict], str | N
         with get_db() as db:
             user = UserRepository(db).get_by_alexa_id(alexa_user_id)
             if not user or not getattr(user, "patient_id", None):
-                return [], "Please say link followed by your code first."
+                return [], "قل: اربط، ثم انطق رمز الطفل أولاً."
 
             patient = PatientRepository(db).get_by_id(user.patient_id)
             if not patient:
-                return [], "This linked patient was not found. Please link again using your code."
+                return [], "لم أجد هذا الطفل. اربط الرمز مرة أخرى."
 
             program_id = getattr(patient, "assigned_program_id", None)
             if not program_id:
-                return [], "No training program is assigned to this patient yet. Please ask the doctor to assign one first."
+                return [], "لا يوجد برنامج تدريبي معيّن لهذا الطفل. اطلب من المختص تعيين برنامج."
 
             questions = QuestionRepository(db).get_by_training_program_id(program_id)
             if not questions:
-                return [], "This patient's assigned program has no ready questions yet. Please ask the doctor to process the PDF first."
+                return [], "البرنامج المعيّن لا يحتوي أسئلة جاهزة بعد. اطلب من المختص تجهيز البرنامج."
 
             return questions, None
     except Exception as e:
         logger.warning("Could not load patient quiz questions: %s", e)
-        return [], "Could not load the assigned quiz right now. Please try again later."
+        return [], "تعذّر تحميل الاختبار الآن. حاول مرة أخرى لاحقاً."
 
 
 def _get_linked_patient_context(alexa_user_id: str) -> tuple[str | None, str | None]:

@@ -13,8 +13,31 @@ logger = logging.getLogger("AlexaQuiz.QuizGenerator")
 
 
 # ========== Question Generation (Groq) ==========
-ALEXA_INTROS_FIRST = ["Here's your question. ", "Question: ", "Let's start. "]
-ALEXA_INTROS_NEXT = ["Next question. ", "Here's the next one. "]
+ALEXA_INTROS_FIRST = ["هذا سؤالك. ", "السؤال: ", "لنبدأ. "]
+ALEXA_INTROS_NEXT = ["السؤال التالي. ", "إليك السؤال التالي. "]
+
+_ARABIC_OPTION_MARKERS = ("أ", "ب", "ج")
+_LATIN_OPTION_MARKERS = ("A", "B", "C")
+
+
+def normalize_mcq_letter(raw: str) -> str:
+    """Map spoken/written answer to internal A/B/C."""
+    s = (raw or "").strip()
+    if not s:
+        return ""
+    ch = s[0]
+    if ch in ("أ", "ا", "آ", "إ"):
+        return "A"
+    if ch == "ب":
+        return "B"
+    if ch == "ج":
+        return "C"
+    upper = s.upper()
+    if upper in _LATIN_OPTION_MARKERS:
+        return upper
+    if len(upper) >= 1 and upper[0] in _LATIN_OPTION_MARKERS:
+        return upper[0]
+    return ""
 
 
 class QuizGenerator:
@@ -46,13 +69,13 @@ class QuizGenerator:
         self.last_error = None
         prompt = f"""
 Context: {context[:800]}
-Task: Create exactly ONE short MCQ (under 12 words). Simple English.
+Task: Create exactly ONE short multiple-choice question in Modern Standard Arabic (under 15 words).
 Format:
-Question: [Short question]
-A) [Option]
-B) [Option]
-C) [Option]
-Correct: [A or B or C]
+Question: [سؤال قصير بالعربية]
+أ) [خيار]
+ب) [خيار]
+ج) [خيار]
+Correct: [A or B or C only — map أ to A, ب to B, ج to C]
 """
         for attempt in range(self._max_retries + 1):
             try:
@@ -86,10 +109,19 @@ Correct: [A or B or C]
         return None
 
     def _parse_options(self, text: str) -> Dict[str, str]:
-        options = {}
-        for letter in "ABC":
-            m = re.search(rf"{letter}\)\s*(.+?)(?=\s+[A-C]\)|$)", text, re.DOTALL)
-            options[letter] = f"{letter}) " + (m.group(1).strip() if m else "Option " + letter)
+        options: Dict[str, str] = {}
+        for key, markers in (("A", ("أ", "A")), ("B", ("ب", "B")), ("C", ("ج", "C"))):
+            for marker in markers:
+                m = re.search(
+                    rf"{re.escape(marker)}\)\s*(.+?)(?=\s+(?:[ABCأبج])\)|$)",
+                    text,
+                    re.DOTALL,
+                )
+                if m:
+                    options[key] = f"{marker}) {m.group(1).strip()}"
+                    break
+            if key not in options:
+                options[key] = f"{markers[0]}) خيار {markers[0]}"
         return options
 
 
@@ -176,7 +208,7 @@ class QuestionCache:
 
     def update_stats(self, question: Dict, user_answer: str) -> None:
         question["times_asked"] = question.get("times_asked", 0) + 1
-        if (user_answer or "").strip().upper() == question.get("correct", ""):
+        if normalize_mcq_letter(user_answer) == (question.get("correct") or "").strip().upper():
             question["times_correct"] = question.get("times_correct", 0) + 1
 
     def format_for_speech(self, q: Dict, first_question: bool = False, is_next: bool = False) -> str:
@@ -194,6 +226,8 @@ class QuestionCache:
         # Also strip duplicate "Question: " prefix (e.g. "Question: Question: ...")
         while question.lower().startswith("question:"):
             question = question[len("question:"):].strip()
+        while question.startswith("السؤال:"):
+            question = question[len("السؤال:"):].strip()
 
         # Prepend the appropriate intro
         if first_question:
@@ -201,9 +235,9 @@ class QuestionCache:
         elif is_next:
             question = random.choice(ALEXA_INTROS_NEXT) + question
 
-        if "A)" in question and "B)" in question:
-            return question
         opts = q.get("options", {})
+        if any(marker in question for marker in ("A)", "B)", "C)", "أ)", "ب)", "ج)")):
+            return question
         parts = [question]
         for k in ["A", "B", "C"]:
             if k in opts:
@@ -309,20 +343,21 @@ class QuizService:
     def answer_and_next(self, session_id: str, user_answer: str) -> tuple[str, bool, str | None]:
         """Returns (speech, end_session, reprompt_or_none). None reprompt => use default A/B/C hint in Alexa."""
         if not self._sessions.get(session_id):
-            return "No active quiz. Say give me a quiz to start.", False, None
+            return "لا يوجد اختبار نشط. قل: ابدأ الاختبار.", False, None
         current = self._sessions.get_current_question(session_id)
         if not current:
-            return "No question. Say give me a quiz.", False, None
+            return "لا يوجد سؤال. قل: ابدأ الاختبار.", False, None
         correct = (current.get("correct") or "").strip().upper()
-        user = (user_answer or "").strip().upper()[:1]
+        user = normalize_mcq_letter(user_answer)
         if not user:
-            return "I didn't catch that. Say A, B, or C.", False, None
+            return "لم أفهم الإجابة. قل: أ، أو ب، أو ج.", False, None
         if user == correct:
             self._sessions.increment_score(session_id)
-            feedback = "Correct!"
+            feedback = "صحيح!"
         else:
-            self._sessions.add_wrong_topic(session_id, f"Chunk {current.get('chunk_id', '?')}")
-            feedback = f"Wrong. The correct answer is {correct}."
+            self._sessions.add_wrong_topic(session_id, f"موضوع {current.get('chunk_id', '?')}")
+            spoken = {"A": "أ", "B": "ب", "C": "ج"}.get(correct, correct)
+            feedback = f"خطأ. الإجابة الصحيحة هي {spoken}."
         self._cache.update_stats(current, user_answer)
         questions = self._sessions.get_question_pool(session_id) or self._reload_questions()
         weak = self._selector.get_weak_chunk_ids(questions)
@@ -335,9 +370,9 @@ class QuizService:
         )
         if not next_q:
             return (
-                f"{feedback} No more questions. Say end quiz to hear your score.",
+                f"{feedback} لا توجد أسئلة أخرى. قل: أنهِ الاختبار لسماع نتيجتك.",
                 False,
-                "Say end quiz to hear your score.",
+                "قل: أنهِ الاختبار لسماع نتيجتك.",
             )
         self._sessions.append_question(session_id, next_q)
         next_text = self._cache.format_for_speech(next_q, first_question=False, is_next=True)
@@ -351,7 +386,7 @@ class QuizService:
         """
         session = self._sessions.get(session_id)
         if not session:
-            return "There is no active quiz to end. Say give me a quiz to start.", True, None
+            return "لا يوجد اختبار لإنهائه. قل: ابدأ الاختبار.", True, None
         # Take a snapshot before popping
         snapshot = {
             "score": session.get("score", 0),
@@ -365,10 +400,14 @@ class QuizService:
         pct = round((score / max(1, total)) * 100)
         wrong = sorted(set(snapshot["wrong_topics"]))
         if wrong:
-            weak_text = f" You need more practice on: {', '.join(wrong)}."
+            weak_text = f" تحتاج مزيداً من التمرين على: {', '.join(wrong)}."
         else:
-            weak_text = " Great job! You answered all questions correctly."
-        return f"Quiz finished. Your score: {score} out of {total}, {pct} percent.{weak_text} Goodbye!", True, snapshot
+            weak_text = " أحسنت! أجبت على كل الأسئلة بشكل صحيح."
+        return (
+            f"انتهى الاختبار. نتيجتك: {score} من {total}، أي {pct} بالمئة.{weak_text} إلى اللقاء!",
+            True,
+            snapshot,
+        )
 
 
 # ========== Stats Service (Dashboard) ==========
