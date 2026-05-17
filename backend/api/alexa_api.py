@@ -1,4 +1,5 @@
 # pyright: reportMissingImports=false
+import json
 import re
 import logging
 from flask import Flask, request, jsonify
@@ -14,7 +15,7 @@ from backend.core.quiz_logic import (
 )
 from backend.database.connection import get_db
 from backend.database.repositories import UserRepository, SessionRepository, QuestionRepository, PatientRepository, TrainingProgramRepository
-from backend.database.models import QuestionModel
+from backend.database.models import QuestionModel, PatientModel
 
 logger = logging.getLogger("AlexaQuiz")
 
@@ -66,18 +67,54 @@ def _extract_answer(intent: dict) -> str:
     return ""
 
 
-def _extract_code(intent: dict) -> str:
+def _collect_code_raw_candidates(intent: dict, payload: dict | None = None) -> list[str]:
+    """Gather every string Alexa might have put the typed/spoken code in."""
+    candidates: list[str] = []
     slots = intent.get("slots", {}) or {}
     code_slot = slots.get("code") or {}
-    raw = (code_slot.get("value") or "").strip()
-    if not raw and code_slot.get("resolutions"):
+
+    def add(val: object) -> None:
+        if val is None:
+            return
+        s = str(val).strip()
+        if s and s not in candidates:
+            candidates.append(s)
+
+    add(code_slot.get("value"))
+    slot_value = code_slot.get("slotValue")
+    if isinstance(slot_value, dict):
+        add(slot_value.get("value"))
+    original = code_slot.get("originalDetokenizedValue")
+    if isinstance(original, dict):
+        add(original.get("value"))
+    if code_slot.get("resolutions"):
         try:
             per_auth = code_slot["resolutions"].get("resolutionsPerAuthority", [])
-            if per_auth and per_auth[0].get("values"):
-                raw = per_auth[0]["values"][0].get("value", {}).get("name", "")
+            for authority in per_auth:
+                for item in authority.get("values", []):
+                    value = item.get("value", {})
+                    add(value.get("name"))
+                    add(value.get("id"))
         except (KeyError, IndexError, TypeError):
             pass
-    return normalize_alexa_link_code(raw)
+
+    if payload:
+        try:
+            blob = json.dumps(payload, ensure_ascii=False)
+            for match in re.finditer(r"(?<!\d)\d{6}(?!\d)", blob):
+                add(match.group(0))
+        except (TypeError, ValueError):
+            pass
+
+    return candidates
+
+
+def _extract_code(intent: dict, payload: dict | None = None) -> str:
+    for raw in _collect_code_raw_candidates(intent, payload):
+        normalized = normalize_alexa_link_code(raw)
+        if normalized:
+            return normalized
+    return ""
 
 
 def create_alexa_app(
@@ -139,8 +176,28 @@ def create_alexa_app(
 
                 if intent_name == "AMAZON.FallbackIntent":
                     if not _is_user_linked(user_id):
+                        fallback_code = _extract_code(intent, data)
+                        if fallback_code:
+                            ok = _link_alexa_to_patient(user_id, fallback_code)
+                            if ok:
+                                patient_name, program_name = _get_linked_patient_context(user_id)
+                                details = ""
+                                if patient_name and program_name:
+                                    details = f" تم الربط مع {patient_name}. البرنامج: {program_name}."
+                                elif patient_name:
+                                    details = f" تم الربط مع {patient_name}."
+                                return build_alexa_response(
+                                    "تم الربط بنجاح. قل: ابدأ الاختبار."
+                                    + details,
+                                    reprompt=_REPROMPT_QUIZ,
+                                )
+                            return build_alexa_response(
+                                f"لم أجد الرمز {fallback_code}. انسخه من اللوحة كما هو، "
+                                "مثال: اربط 469573.",
+                                reprompt=_REPROMPT_LINK,
+                            )
                         return build_alexa_response(
-                            "قل: اربط، ثم انطق رمز الطفل.",
+                            "قل: اربط ثم الرمز. عند الكتابة في المحاكي استخدم: اربط 469573",
                             reprompt=_REPROMPT_LINK,
                         )
                     return build_alexa_response(
@@ -149,12 +206,15 @@ def create_alexa_app(
                     )
 
                 if intent_name == "LinkPatientIntent":
-                    code = _extract_code(intent)
+                    code = _extract_code(intent, data)
                     if not code:
+                        logger.info("Alexa link: no code parsed intent=%s", intent_name)
                         return build_alexa_response(
-                            "قل: اربط، ثم انطق الرمز المكوّن من ستة أرقام، رقماً رقماً.",
+                            "لم أفهم الرمز. اكتب أو قل: اربط ثم ستة أرقام بدون مسافات، "
+                            "مثل: اربط 469573.",
                             reprompt=_REPROMPT_LINK,
                         )
+                    logger.info("Alexa link attempt code=%s", code)
                     ok = _link_alexa_to_patient(user_id, code)
                     if ok:
                         patient_name, program_name = _get_linked_patient_context(user_id)
@@ -170,8 +230,8 @@ def create_alexa_app(
                             reprompt=_REPROMPT_QUIZ,
                         )
                     return build_alexa_response(
-                        "لم أجد هذا الرمز. انطق الستة أرقام واحداً واحداً كما في اللوحة، "
-                        "مثل: 4، 6، 9، 5، 7، 3. لا تقرأها كمئات أو آلاف.",
+                        f"لم أجد الرمز {code} في النظام. تأكد أنه نفس الرمز في لوحة أثيريا "
+                        "وأن مهارة Alexa متصلة بخادم Render (eduvox-alexa) وليس ngrok قديم.",
                         reprompt=_REPROMPT_LINK,
                     )
 
@@ -234,7 +294,19 @@ def create_alexa_app(
     @app.route("/", methods=["GET"])
     @app.route("/health", methods=["GET"])
     def root():
-        return jsonify(_alexa_probe)
+        body = dict(_alexa_probe)
+        try:
+            with get_db() as db:
+                body["database"] = "ok"
+                body["patients_with_codes"] = (
+                    db.query(PatientModel)
+                    .filter(PatientModel.alexa_code.isnot(None))
+                    .count()
+                )
+        except Exception as exc:
+            body["database"] = "error"
+            body["database_error"] = str(exc)[:200]
+        return jsonify(body)
 
     @app.route("/test", methods=["GET"])
     def test():
@@ -296,9 +368,16 @@ def _link_alexa_to_patient(alexa_user_id: str, code: str) -> bool:
             user_repo = UserRepository(db)
             patient = patient_repo.get_by_alexa_code(code)
             if not patient:
+                logger.info("Alexa link: patient not found for code=%s", code)
                 return False
             user_repo.link_to_patient(alexa_user_id, patient.id)
             db.commit()
+            logger.info(
+                "Alexa link: linked user=%s patient_id=%s code=%s",
+                alexa_user_id,
+                patient.id,
+                code,
+            )
             return True
     except Exception as e:
         logger.warning("Could not link Alexa to patient: %s", e)

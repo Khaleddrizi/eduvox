@@ -226,15 +226,30 @@ class PatientRepository:
     def get_by_alexa_code(self, code: str) -> PatientModel | None:
         from backend.core.alexa_codes import normalize_alexa_link_code
 
-        normalized = normalize_alexa_link_code(code)
-        if not normalized:
-            return None
-        lookup = normalized.upper() if re.search(r"[A-F]", normalized, re.IGNORECASE) else normalized
-        return (
-            self._db.query(PatientModel)
-            .filter(PatientModel.alexa_code == lookup)
-            .first()
-        )
+        raw = (code or "").strip()
+        normalized = normalize_alexa_link_code(raw)
+        lookups: list[str] = []
+        if normalized:
+            lookups.append(
+                normalized.upper()
+                if re.search(r"[A-F]", normalized, re.IGNORECASE)
+                else normalized
+            )
+        if raw and raw not in lookups:
+            lookups.append(raw)
+            compact = re.sub(r"\s+", "", raw)
+            if compact and compact not in lookups:
+                lookups.append(compact)
+
+        for lookup in lookups:
+            patient = (
+                self._db.query(PatientModel)
+                .filter(PatientModel.alexa_code == lookup)
+                .first()
+            )
+            if patient:
+                return patient
+        return None
 
     def assign_program(self, patient_id: int, program_id: int | None) -> PatientModel | None:
         patient = self.get_by_id(patient_id)
