@@ -170,7 +170,8 @@ def create_alexa_app(
                             reprompt=_REPROMPT_QUIZ,
                         )
                     return build_alexa_response(
-                        "لم أجد هذا الرمز. تحقق من اللوحة وحاول مرة أخرى.",
+                        "لم أجد هذا الرمز. انطق الستة أرقام واحداً واحداً كما في اللوحة، "
+                        "مثل: 4، 6، 9، 5، 7، 3. لا تقرأها كمئات أو آلاف.",
                         reprompt=_REPROMPT_LINK,
                     )
 

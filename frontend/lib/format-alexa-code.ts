@@ -10,3 +10,16 @@ export function formatAlexaLinkCode(code: string | null | undefined): string {
   }
   return code
 }
+
+/** Digits separated for Alexa voice (e.g. 4، 6، 9، 5، 7، 3). */
+export function formatAlexaLinkCodeSpeech(code: string | null | undefined): string {
+  if (!code) return ""
+  const c = code.trim().toUpperCase()
+  if (/^\d{6}$/.test(c)) {
+    return c.split("").join("، ")
+  }
+  if (/^[A-F0-9]{8}$/.test(c)) {
+    return c.split("").join("، ")
+  }
+  return code
+}

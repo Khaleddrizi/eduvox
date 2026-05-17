@@ -21,7 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { fetchApi } from "@/lib/api"
-import { formatAlexaLinkCode } from "@/lib/format-alexa-code"
+import { formatAlexaLinkCode, formatAlexaLinkCodeSpeech } from "@/lib/format-alexa-code"
 import { AdminIssuesStrip } from "@/components/admin/admin-entity-pages"
 import { usePortalI18n } from "@/lib/i18n/i18n-context"
 import { readLocaleFromStorage, resolveMessage } from "@/lib/i18n/messages"
@@ -365,7 +365,12 @@ function PatientDetailsPageContent() {
                       {formatAlexaLinkCode(patient.alexa_code) || "—"}
                     </code>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">{t("patientDetail.codeHint")}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {t("patientDetail.codeHint").replace(
+                      "{speech}",
+                      formatAlexaLinkCodeSpeech(patient.alexa_code) || "—",
+                    )}
+                  </p>
                 </div>
                 <div className="flex items-center justify-between py-2">
                   <span className="text-[12px] text-muted-foreground">{t("patientDetail.created")}</span>
