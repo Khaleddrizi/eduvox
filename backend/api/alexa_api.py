@@ -5,7 +5,7 @@ import logging
 from flask import Flask, request, jsonify
 
 from backend.config import QUESTION_CACHE_PATH, WEAK_CHUNK_THRESHOLD
-from backend.core.alexa_codes import normalize_alexa_link_code
+from backend.core.alexa_codes import normalize_alexa_link_code, normalize_arabic_speech
 from backend.core.quiz_logic import (
     QuestionCache,
     SessionStore,
@@ -19,9 +19,19 @@ from backend.database.models import QuestionModel, PatientModel
 
 logger = logging.getLogger("AlexaQuiz")
 
-_REPROMPT_LINK = "قل: اربط، ثم انطق رمزك المكوّن من ستة أرقام."
+_REPROMPT_LINK = "قل: اربط، ثم الرمز من ستة أرقام."
 _REPROMPT_QUIZ = "قل: ابدأ الاختبار."
 _REPROMPT_ANSWER = "ما إجابتك؟ قل: أ، أو ب، أو ج."
+
+_MSG_WELCOME = (
+    "مرحباً بك في أثيريا، منصة البرنامج التدريبي للأطفال. "
+    "من فضلك أدخل الرمز الخاص بالطفل: قل «اربط»، ثم الرمز من ستة أرقام. "
+    "ستجده في لوحة ولي الأمر أو المختص."
+)
+_MSG_LINK_SUCCESS = (
+    "تم الربط بنجاح.{child} "
+    "الآن يمكنك البدء ببرنامجك التدريبي. قل: ابدأ الاختبار."
+)
 
 
 def build_alexa_response(
@@ -117,6 +127,106 @@ def _extract_code(intent: dict, payload: dict | None = None) -> str:
     return ""
 
 
+def _request_text_blob(intent: dict, payload: dict | None = None) -> str:
+    parts: list[str] = []
+    if payload:
+        req = payload.get("request") or {}
+        for key in ("input", "query", "utterance"):
+            val = req.get(key)
+            if val:
+                parts.append(str(val))
+    parts.append(json.dumps(intent, ensure_ascii=False))
+    return normalize_arabic_speech(" ".join(parts))
+
+
+def _wants_end_quiz(blob: str) -> bool:
+    if not blob:
+        return False
+    return bool(
+        re.search(r"(انه|انهاء|انهي|انته|انهِ|انها|end\s*quiz|finish)", blob)
+        and not re.search(r"^(ابد|ابدا|ابدأ|بدا|بدء)", blob)
+    )
+
+
+def _wants_start_quiz(blob: str) -> bool:
+    if not blob:
+        return False
+    if _wants_end_quiz(blob):
+        return False
+    return bool(
+        re.search(
+            r"(ابدأ|ابدا|ابدئ|ابدا|بدا|بدء|ابد|افتح|start|"
+            r"ابداء|ابداء|البرنامج|برنامج|تدريب|اختبار|كويز|quiz)",
+            blob,
+        )
+    )
+
+
+def _wants_link(blob: str) -> bool:
+    return bool(blob and re.search(r"(اربط|ربط|link|كود|رمز)", blob))
+
+
+def _wants_training_program(blob: str) -> bool:
+    return bool(blob and re.search(r"(برنامج|تدريب|اثيريا|أثيريا|افتح)", blob))
+
+
+def _link_success_speech(patient_name: str | None) -> str:
+    child = f" تم ربط حساب {patient_name}." if patient_name else ""
+    return _MSG_LINK_SUCCESS.format(child=child)
+
+
+def _resolve_effective_intent(intent_name: str, blob: str, has_active_quiz: bool) -> str:
+    """Correct common Arabic NLU mix-ups (e.g. ابدا الاختبار → EndQuiz)."""
+    if _wants_start_quiz(blob) and not has_active_quiz:
+        if intent_name in (
+            "EndQuizIntent",
+            "AMAZON.FallbackIntent",
+            "AMAZON.HelpIntent",
+        ):
+            return "StartQuizIntent"
+    if _wants_end_quiz(blob) and has_active_quiz:
+        return "EndQuizIntent"
+    if _wants_link(blob) and intent_name in ("AMAZON.FallbackIntent",):
+        return "LinkPatientIntent"
+    return intent_name
+
+
+def _handle_start_quiz(
+    session_key: str,
+    user_id: str,
+    quiz: QuizService,
+    sessions: SessionStore,
+):
+    if not _is_user_linked(user_id):
+        return build_alexa_response(
+            "من فضلك اربط حساب الطفل أولاً. قل: اربط، ثم الرمز من اللوحة.",
+            reprompt=_REPROMPT_LINK,
+        )
+    questions, error_message = _get_patient_quiz_questions(user_id)
+    if error_message:
+        return build_alexa_response(
+            error_message,
+            reprompt=_REPROMPT_QUIZ if _is_user_linked(user_id) else _REPROMPT_LINK,
+        )
+    linked_patient_id = _get_linked_patient_id(user_id)
+    intro = "حسناً، لنبدأ البرنامج التدريبي. "
+    text = quiz.start_quiz(session_key, questions=questions)
+    if not text:
+        return build_alexa_response(
+            "لا توجد أسئلة جاهزة بعد. اطلب من المختص تعيين برنامج جاهز.",
+            reprompt=_REPROMPT_QUIZ,
+        )
+    if linked_patient_id:
+        s = sessions.get(session_key)
+        if s is not None:
+            s["patient_id"] = linked_patient_id
+    return build_alexa_response(
+        intro + text,
+        end_session=False,
+        reprompt=_REPROMPT_ANSWER,
+    )
+
+
 def create_alexa_app(
     cache: QuestionCache | None = None,
     session_store: SessionStore | None = None,
@@ -146,9 +256,7 @@ def create_alexa_app(
 
             if request_type == "LaunchRequest":
                 return build_alexa_response(
-                    "مرحباً بك في أثيريا. قل: اربط، ثم انطق رمز الطفل المكوّن من ستة أرقام. "
-                    "مثال: اربط، 4، 8، 2، 9، 1، 6. "
-                    "ستجد الرمز في لوحة ولي الأمر أو المختص.",
+                    _MSG_WELCOME,
                     end_session=False,
                     reprompt=_REPROMPT_LINK,
                 )
@@ -156,17 +264,30 @@ def create_alexa_app(
             if request_type == "IntentRequest":
                 intent = req.get("intent", {})
                 intent_name = intent.get("name", "")
+                utterance_blob = _request_text_blob(intent, data)
+                has_active_quiz = _sessions.get(session_key) is not None
+                intent_name = _resolve_effective_intent(
+                    intent_name, utterance_blob, has_active_quiz
+                )
+                logger.info(
+                    "Alexa intent=%s effective=%s blob=%r active_quiz=%s",
+                    req.get("intent", {}).get("name"),
+                    intent_name,
+                    utterance_blob[:80],
+                    has_active_quiz,
+                )
 
                 if intent_name == "AMAZON.HelpIntent":
                     if not _is_user_linked(user_id):
                         return build_alexa_response(
-                            "قل: اربط، ثم انطق الرمز المكوّن من ستة أرقام، رقماً رقماً. "
-                            "بعدها قل: ابدأ الاختبار.",
+                            _MSG_WELCOME,
                             reprompt=_REPROMPT_LINK,
                         )
+                    if _wants_start_quiz(utterance_blob):
+                        return _handle_start_quiz(session_key, user_id, _quiz, _sessions)
                     return build_alexa_response(
-                        "قل: ابدأ الاختبار. أجب بـ أ، أو ب، أو ج. "
-                        "عند الانتهاء قل: أنهِ الاختبار لسماع نتيجتك.",
+                        "لبدء البرنامج قل: ابدأ الاختبار. أجب بأ أو ب أو ج. "
+                        "للإنهاء قل: أنهِ الاختبار.",
                         reprompt=_REPROMPT_QUIZ,
                     )
 
@@ -176,19 +297,18 @@ def create_alexa_app(
 
                 if intent_name == "AMAZON.FallbackIntent":
                     if not _is_user_linked(user_id):
+                        if _wants_training_program(utterance_blob) and not _wants_link(utterance_blob):
+                            return build_alexa_response(
+                                _MSG_WELCOME,
+                                reprompt=_REPROMPT_LINK,
+                            )
                         fallback_code = _extract_code(intent, data)
                         if fallback_code:
                             ok = _link_alexa_to_patient(user_id, fallback_code)
                             if ok:
-                                patient_name, program_name = _get_linked_patient_context(user_id)
-                                details = ""
-                                if patient_name and program_name:
-                                    details = f" تم الربط مع {patient_name}. البرنامج: {program_name}."
-                                elif patient_name:
-                                    details = f" تم الربط مع {patient_name}."
+                                patient_name, _ = _get_linked_patient_context(user_id)
                                 return build_alexa_response(
-                                    "تم الربط بنجاح. قل: ابدأ الاختبار."
-                                    + details,
+                                    _link_success_speech(patient_name),
                                     reprompt=_REPROMPT_QUIZ,
                                 )
                             return build_alexa_response(
@@ -197,11 +317,13 @@ def create_alexa_app(
                                 reprompt=_REPROMPT_LINK,
                             )
                         return build_alexa_response(
-                            "قل: اربط ثم الرمز. عند الكتابة في المحاكي استخدم: اربط 469573",
+                            _MSG_WELCOME,
                             reprompt=_REPROMPT_LINK,
                         )
+                    if _wants_start_quiz(utterance_blob):
+                        return _handle_start_quiz(session_key, user_id, _quiz, _sessions)
                     return build_alexa_response(
-                        "جرّب: ابدأ الاختبار.",
+                        "قل: ابدأ الاختبار لبدء البرنامج التدريبي.",
                         reprompt=_REPROMPT_QUIZ,
                     )
 
@@ -217,16 +339,9 @@ def create_alexa_app(
                     logger.info("Alexa link attempt code=%s", code)
                     ok = _link_alexa_to_patient(user_id, code)
                     if ok:
-                        patient_name, program_name = _get_linked_patient_context(user_id)
-                        details = ""
-                        if patient_name and program_name:
-                            details = f" تم الربط مع {patient_name}. البرنامج: {program_name}."
-                        elif patient_name:
-                            details = f" تم الربط مع {patient_name}."
+                        patient_name, _ = _get_linked_patient_context(user_id)
                         return build_alexa_response(
-                            "تم الربط بنجاح. قل: ابدأ الاختبار. "
-                            "ستظهر نتائجك في لوحة المتابعة على الموقع."
-                            + details,
+                            _link_success_speech(patient_name),
                             reprompt=_REPROMPT_QUIZ,
                         )
                     return build_alexa_response(
@@ -236,31 +351,7 @@ def create_alexa_app(
                     )
 
                 if intent_name == "StartQuizIntent":
-                    if not _is_user_linked(user_id):
-                        return build_alexa_response(
-                            "اربط حساب الطفل أولاً. قل: اربط، ثم الرمز من اللوحة.",
-                            reprompt=_REPROMPT_LINK,
-                        )
-                    questions, error_message = _get_patient_quiz_questions(user_id)
-                    if error_message:
-                        return build_alexa_response(
-                            error_message,
-                            reprompt=_REPROMPT_QUIZ if _is_user_linked(user_id) else _REPROMPT_LINK,
-                        )
-                    linked_patient_id = _get_linked_patient_id(user_id)
-                    text = _quiz.start_quiz(session_key, questions=questions)
-                    if not text:
-                        return build_alexa_response(
-                            "لا توجد أسئلة جاهزة بعد. اطلب من المختص تعيين برنامج جاهز.",
-                            reprompt=_REPROMPT_QUIZ,
-                        )
-                    if linked_patient_id:
-                        s = _sessions.get(session_key)
-                        if s is not None:
-                            s["patient_id"] = linked_patient_id
-                    return build_alexa_response(
-                        text, end_session=False, reprompt=_REPROMPT_ANSWER
-                    )
+                    return _handle_start_quiz(session_key, user_id, _quiz, _sessions)
 
                 if intent_name == "AnswerIntent":
                     answer = _extract_answer(intent)
@@ -269,18 +360,29 @@ def create_alexa_app(
                     return build_alexa_response(text, end_session=end, reprompt=rp)
 
                 if intent_name == "EndQuizIntent":
+                    if _wants_start_quiz(utterance_blob) and not has_active_quiz:
+                        return _handle_start_quiz(session_key, user_id, _quiz, _sessions)
                     text, end, snapshot = _quiz.end_quiz(session_key)
                     if snapshot:
                         _save_session_to_db(user_id, snapshot)
                     result_msg = text
                     if snapshot and _is_user_linked(user_id):
-                        result_msg = text + " راجع لوحة المتابعة على الموقع لمعرفة التقدم."
+                        result_msg = (
+                            text
+                            + " أحسنت! راجع لوحة المتابعة على الموقع لمعرفة التقدم."
+                        )
                     return build_alexa_response(result_msg, end_session=end)
 
+            if _is_user_linked(user_id):
+                return build_alexa_response(
+                    "قل: ابدأ الاختبار لبدء البرنامج التدريبي.",
+                    end_session=False,
+                    reprompt=_REPROMPT_QUIZ,
+                )
             return build_alexa_response(
-                "قل: ابدأ الاختبار.",
+                _MSG_WELCOME,
                 end_session=False,
-                reprompt=_REPROMPT_QUIZ if _is_user_linked(user_id) else _REPROMPT_LINK,
+                reprompt=_REPROMPT_LINK,
             )
 
         except Exception as e:

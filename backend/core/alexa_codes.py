@@ -77,6 +77,11 @@ def generate_alexa_link_code() -> str:
     return "".join(str(secrets.randbelow(10)) for _ in range(ALEXA_LINK_CODE_DIGITS))
 
 
+def normalize_arabic_speech(text: str) -> str:
+    """Normalize Arabic utterances for intent matching (public helper)."""
+    return _normalize_arabic_text(text)
+
+
 def _normalize_arabic_text(text: str) -> str:
     t = (text or "").translate(_ARABIC_INDIC_DIGITS)
     t = re.sub(r"[\u064B-\u065F\u0670]", "", t)
