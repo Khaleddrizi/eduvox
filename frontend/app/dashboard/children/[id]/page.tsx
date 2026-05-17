@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { fetchApi, getAuthHeaders, publicApiBase } from "@/lib/api"
+import { formatAlexaLinkCode } from "@/lib/format-alexa-code"
 import { AdminIssuesStrip } from "@/components/admin/admin-entity-pages"
 import { usePortalI18n } from "@/lib/i18n/i18n-context"
 import type { AppLocale } from "@/lib/i18n/types"
@@ -301,7 +302,9 @@ function ChildDetailsContent() {
               <div className="inline-flex items-center gap-2 text-xs text-muted-foreground mb-2">
                 <KeyRound className="h-3.5 w-3.5" /> {t("childDetail.codeHint")}
               </div>
-              <code className="rounded bg-slate-100 px-2 py-1 font-mono dark:bg-slate-800">{child.alexa_code || "—"}</code>
+              <code className="rounded bg-slate-100 px-2 py-1 font-mono tracking-wide dark:bg-slate-800">
+                {formatAlexaLinkCode(child.alexa_code) || "—"}
+              </code>
             </CardContent>
           </Card>
           <Card className="surface-card">

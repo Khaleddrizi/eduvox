@@ -21,6 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { fetchApi } from "@/lib/api"
+import { formatAlexaLinkCode } from "@/lib/format-alexa-code"
 import { AdminIssuesStrip } from "@/components/admin/admin-entity-pages"
 import { usePortalI18n } from "@/lib/i18n/i18n-context"
 import { readLocaleFromStorage, resolveMessage } from "@/lib/i18n/messages"
@@ -317,7 +318,9 @@ function PatientDetailsPageContent() {
                       getStatus(Math.round(patient.stats?.avg_accuracy ?? 0), patient.stats?.total_sessions ?? 0),
                       t,
                     )}
-                    <code className="rounded-full bg-slate-100 text-slate-700 px-2.5 py-1 text-xs font-mono">{patient.alexa_code || "—"}</code>
+                    <code className="rounded-full bg-slate-100 text-slate-700 px-2.5 py-1 text-xs font-mono tracking-wide">
+                    {formatAlexaLinkCode(patient.alexa_code) || "—"}
+                  </code>
                   </div>
                 </div>
               </div>
@@ -355,9 +358,14 @@ function PatientDetailsPageContent() {
                     {patient.diagnostic ? diagnosticLabel(patient.diagnostic, t) : "—"}
                   </span>
                 </div>
-                <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-[12px] text-muted-foreground">{t("patientDetail.childCode")}</span>
-                  <code className="rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[12px] font-mono">{patient.alexa_code || "—"}</code>
+                <div className="flex flex-col gap-1 py-2 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-muted-foreground">{t("patientDetail.childCode")}</span>
+                    <code className="rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[12px] font-mono tracking-wide">
+                      {formatAlexaLinkCode(patient.alexa_code) || "—"}
+                    </code>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">{t("patientDetail.codeHint")}</p>
                 </div>
                 <div className="flex items-center justify-between py-2">
                   <span className="text-[12px] text-muted-foreground">{t("patientDetail.created")}</span>

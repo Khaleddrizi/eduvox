@@ -4,6 +4,7 @@ import logging
 from flask import Flask, request, jsonify
 
 from backend.config import QUESTION_CACHE_PATH, WEAK_CHUNK_THRESHOLD
+from backend.core.alexa_codes import normalize_alexa_link_code
 from backend.core.quiz_logic import (
     QuestionCache,
     SessionStore,
@@ -17,7 +18,7 @@ from backend.database.models import QuestionModel
 
 logger = logging.getLogger("AlexaQuiz")
 
-_REPROMPT_LINK = "قل: اربط، ثم انطق رمزك المكوّن من ثمانية أحرف."
+_REPROMPT_LINK = "قل: اربط، ثم انطق رمزك المكوّن من ستة أرقام."
 _REPROMPT_QUIZ = "قل: ابدأ الاختبار."
 _REPROMPT_ANSWER = "ما إجابتك؟ قل: أ، أو ب، أو ج."
 
@@ -69,22 +70,14 @@ def _extract_code(intent: dict) -> str:
     slots = intent.get("slots", {}) or {}
     code_slot = slots.get("code") or {}
     raw = (code_slot.get("value") or "").strip()
-    return _normalize_code(raw)
-
-
-def _normalize_code(raw: str) -> str:
-    text = (raw or "").strip().upper()
-    if not text:
-        return ""
-
-    text = re.sub(r"\b(LINK|CODE|IS|MY|ربط|كود|الرمز)\b", " ", text, flags=re.IGNORECASE)
-
-    compact = re.sub(r"[^A-Z0-9]", "", text)
-    match = re.search(r"[A-F0-9]{8}", compact)
-    if match:
-        return match.group(0)
-
-    return compact[-8:] if len(compact) >= 8 else compact
+    if not raw and code_slot.get("resolutions"):
+        try:
+            per_auth = code_slot["resolutions"].get("resolutionsPerAuthority", [])
+            if per_auth and per_auth[0].get("values"):
+                raw = per_auth[0]["values"][0].get("value", {}).get("name", "")
+        except (KeyError, IndexError, TypeError):
+            pass
+    return normalize_alexa_link_code(raw)
 
 
 def create_alexa_app(
@@ -116,8 +109,8 @@ def create_alexa_app(
 
             if request_type == "LaunchRequest":
                 return build_alexa_response(
-                    "مرحباً بك في أثيريا. قل: اربط، ثم انطق رمز الطفل المكوّن من ثمانية أحرف. "
-                    "مثال: اربط، 8، B، 6، A، 6، 7، 1، B. "
+                    "مرحباً بك في أثيريا. قل: اربط، ثم انطق رمز الطفل المكوّن من ستة أرقام. "
+                    "مثال: اربط، 4، 8، 2، 9، 1، 6. "
                     "ستجد الرمز في لوحة ولي الأمر أو المختص.",
                     end_session=False,
                     reprompt=_REPROMPT_LINK,
@@ -130,7 +123,7 @@ def create_alexa_app(
                 if intent_name == "AMAZON.HelpIntent":
                     if not _is_user_linked(user_id):
                         return build_alexa_response(
-                            "قل: اربط، ثم انطق الرمز حرفاً بحرف. "
+                            "قل: اربط، ثم انطق الرمز المكوّن من ستة أرقام، رقماً رقماً. "
                             "بعدها قل: ابدأ الاختبار.",
                             reprompt=_REPROMPT_LINK,
                         )
@@ -159,7 +152,7 @@ def create_alexa_app(
                     code = _extract_code(intent)
                     if not code:
                         return build_alexa_response(
-                            "قل: اربط، ثم انطق الرمز المكوّن من ثمانية أحرف، حرفاً بحرف.",
+                            "قل: اربط، ثم انطق الرمز المكوّن من ستة أرقام، رقماً رقماً.",
                             reprompt=_REPROMPT_LINK,
                         )
                     ok = _link_alexa_to_patient(user_id, code)

@@ -3,6 +3,7 @@ Repository layer: CRUD operations on the database.
 """
 import json
 import logging
+import re
 import secrets
 from typing import List, Dict, Any, Set
 
@@ -171,8 +172,9 @@ class PatientRepository:
         parent_id: int | None = None,
         assigned_program_id: int | None = None,
     ) -> PatientModel:
-        import secrets
-        code = secrets.token_hex(6).upper()[:8]
+        from backend.core.alexa_codes import generate_alexa_link_code
+
+        code = self._generate_unique_alexa_link_code()
         p = PatientModel(
             specialist_id=specialist_id,
             parent_id=parent_id,
@@ -207,10 +209,30 @@ class PatientRepository:
         )
         return [self._to_dict(p) for p in patients]
 
+    def _generate_unique_alexa_link_code(self, max_attempts: int = 40) -> str:
+        from backend.core.alexa_codes import generate_alexa_link_code
+
+        for _ in range(max_attempts):
+            candidate = generate_alexa_link_code()
+            exists = (
+                self._db.query(PatientModel)
+                .filter(PatientModel.alexa_code == candidate)
+                .first()
+            )
+            if not exists:
+                return candidate
+        raise RuntimeError("Unable to generate a unique Alexa link code")
+
     def get_by_alexa_code(self, code: str) -> PatientModel | None:
+        from backend.core.alexa_codes import normalize_alexa_link_code
+
+        normalized = normalize_alexa_link_code(code)
+        if not normalized:
+            return None
+        lookup = normalized.upper() if re.search(r"[A-F]", normalized, re.IGNORECASE) else normalized
         return (
             self._db.query(PatientModel)
-            .filter(PatientModel.alexa_code == (code or "").strip().upper())
+            .filter(PatientModel.alexa_code == lookup)
             .first()
         )
 
