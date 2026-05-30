@@ -13,8 +13,10 @@ logger = logging.getLogger("AlexaQuiz.QuizGenerator")
 
 
 # ========== Question Generation (Groq) ==========
-ALEXA_INTROS_FIRST = ["هذا سؤالك. ", "السؤال: ", "لنبدأ. "]
-ALEXA_INTROS_NEXT = ["السؤال التالي. ", "إليك السؤال التالي. "]
+ALEXA_INTROS_FIRST_AR = ["هذا سؤالك. ", "السؤال: ", "لنبدأ. "]
+ALEXA_INTROS_NEXT_AR = ["السؤال التالي. ", "إليك السؤال التالي. "]
+ALEXA_INTROS_FIRST_EN = ["Here is your question. ", "Question: ", "Let's begin. "]
+ALEXA_INTROS_NEXT_EN = ["Next question. ", "Here's the next one. "]
 
 _ARABIC_OPTION_MARKERS = ("أ", "ب", "ج")
 _LATIN_OPTION_MARKERS = ("A", "B", "C")
@@ -94,7 +96,7 @@ Correct: [A or B or C only — map أ to A, ب to B, ج to C]
                 if "main goal" in clean.lower() or "purpose of" in clean.lower():
                     return None
                 options = self._parse_options(clean)
-                intro = random.choice(ALEXA_INTROS_FIRST)
+                intro = random.choice(ALEXA_INTROS_FIRST_AR)
                 return {"question": f"{intro}{clean}", "question_body": clean, "options": options, "correct": correct}
             except Exception as exc:
                 self.last_error = str(exc)[:300] or exc.__class__.__name__
@@ -211,29 +213,34 @@ class QuestionCache:
         if normalize_mcq_letter(user_answer) == (question.get("correct") or "").strip().upper():
             question["times_correct"] = question.get("times_correct", 0) + 1
 
-    def format_for_speech(self, q: Dict, first_question: bool = False, is_next: bool = False) -> str:
+    def format_for_speech(
+        self,
+        q: Dict,
+        first_question: bool = False,
+        is_next: bool = False,
+        locale: str = "ar",
+    ) -> str:
         question = q.get("question", "").strip()
         if not question:
             return ""
 
-        # Strip any existing intro prefix so we never double them
-        all_intros = ALEXA_INTROS_FIRST + ALEXA_INTROS_NEXT
+        intros_first = ALEXA_INTROS_FIRST_EN if locale == "en" else ALEXA_INTROS_FIRST_AR
+        intros_next = ALEXA_INTROS_NEXT_EN if locale == "en" else ALEXA_INTROS_NEXT_AR
+        all_intros = intros_first + intros_next
         for intro in all_intros:
             if question.lower().startswith(intro.lower()):
                 question = question[len(intro):].strip()
                 break
 
-        # Also strip duplicate "Question: " prefix (e.g. "Question: Question: ...")
         while question.lower().startswith("question:"):
             question = question[len("question:"):].strip()
         while question.startswith("السؤال:"):
             question = question[len("السؤال:"):].strip()
 
-        # Prepend the appropriate intro
         if first_question:
-            question = random.choice(ALEXA_INTROS_FIRST) + question
+            question = random.choice(intros_first) + question
         elif is_next:
-            question = random.choice(ALEXA_INTROS_NEXT) + question
+            question = random.choice(intros_next) + question
 
         opts = q.get("options", {})
         if any(marker in question for marker in ("A)", "B)", "C)", "أ)", "ب)", "ج)")):
@@ -266,6 +273,7 @@ class SessionStore:
         question_pool: List[Dict] | None = None,
         score: int = 0,
         wrong_topics: List[str] | None = None,
+        locale: str = "ar",
     ) -> None:
         self._sessions[session_id] = {
             "questions": list(questions),
@@ -274,6 +282,7 @@ class SessionStore:
             "score": score,
             "wrong_topics": list(wrong_topics or []),
             "used_ids": {id(q) for q in questions},
+            "locale": locale,
         }
 
     def append_question(self, session_id: str, question: Dict) -> None:
@@ -330,34 +339,57 @@ class QuizService:
     def _reload_questions(self) -> List[Dict]:
         return self._cache.load()
 
-    def start_quiz(self, session_id: str, questions: List[Dict] | None = None) -> str | None:
+    def _session_locale(self, session_id: str) -> str:
+        s = self._sessions.get(session_id)
+        if s and s.get("locale") in ("en", "ar"):
+            return s["locale"]
+        return "ar"
+
+    def start_quiz(
+        self,
+        session_id: str,
+        questions: List[Dict] | None = None,
+        locale: str = "ar",
+    ) -> str | None:
         questions = list(questions) if questions is not None else self._reload_questions()
         if not questions:
             return None
         q = self._selector.select_next(questions)
         if not q:
             return None
-        self._sessions.set(session_id, questions=[q], question_pool=questions, score=0, wrong_topics=[])
-        return self._cache.format_for_speech(q, first_question=True)
+        self._sessions.set(
+            session_id,
+            questions=[q],
+            question_pool=questions,
+            score=0,
+            wrong_topics=[],
+            locale=locale,
+        )
+        return self._cache.format_for_speech(q, first_question=True, locale=locale)
 
     def answer_and_next(self, session_id: str, user_answer: str) -> tuple[str, bool, str | None]:
-        """Returns (speech, end_session, reprompt_or_none). None reprompt => use default A/B/C hint in Alexa."""
+        """Returns (speech, end_session, reprompt_or_none)."""
+        from backend.core.alexa_i18n import get_quiz_copy, spoken_option_letter
+
+        locale = self._session_locale(session_id)
+        copy = get_quiz_copy(locale)
         if not self._sessions.get(session_id):
-            return "لا يوجد اختبار نشط. قل: ابدأ الاختبار.", False, None
+            return copy.no_active, False, None
         current = self._sessions.get_current_question(session_id)
         if not current:
-            return "لا يوجد سؤال. قل: ابدأ الاختبار.", False, None
+            return copy.no_question, False, None
         correct = (current.get("correct") or "").strip().upper()
         user = normalize_mcq_letter(user_answer)
         if not user:
-            return "لم أفهم الإجابة. قل: أ، أو ب، أو ج.", False, None
+            return copy.bad_answer, False, None
         if user == correct:
             self._sessions.increment_score(session_id)
-            feedback = "صحيح!"
+            feedback = copy.correct
         else:
-            self._sessions.add_wrong_topic(session_id, f"موضوع {current.get('chunk_id', '?')}")
-            spoken = {"A": "أ", "B": "ب", "C": "ج"}.get(correct, correct)
-            feedback = f"خطأ. الإجابة الصحيحة هي {spoken}."
+            topic = current.get("chunk_text") or f"topic {current.get('chunk_id', '?')}"
+            self._sessions.add_wrong_topic(session_id, topic)
+            spoken = spoken_option_letter(correct, locale)
+            feedback = copy.wrong.format(letter=spoken)
         self._cache.update_stats(current, user_answer)
         questions = self._sessions.get_question_pool(session_id) or self._reload_questions()
         weak = self._selector.get_weak_chunk_ids(questions)
@@ -370,24 +402,24 @@ class QuizService:
         )
         if not next_q:
             return (
-                f"{feedback} لا توجد أسئلة أخرى. قل: أنهِ الاختبار لسماع نتيجتك.",
+                f"{feedback}{copy.no_more}",
                 False,
-                "قل: أنهِ الاختبار لسماع نتيجتك.",
+                copy.no_more_reprompt,
             )
         self._sessions.append_question(session_id, next_q)
-        next_text = self._cache.format_for_speech(next_q, first_question=False, is_next=True)
+        next_text = self._cache.format_for_speech(
+            next_q, first_question=False, is_next=True, locale=locale
+        )
         return f"{feedback} {next_text}", False, None
 
     def end_quiz(self, session_id: str) -> tuple[str, bool, dict | None]:
-        """
-        Returns (speech_text, end_session, session_snapshot).
-        The snapshot must be used by the caller to persist results
-        BEFORE the session is cleared from memory.
-        """
+        from backend.core.alexa_i18n import get_quiz_copy
+
+        locale = self._session_locale(session_id)
+        copy = get_quiz_copy(locale)
         session = self._sessions.get(session_id)
         if not session:
-            return "لا يوجد اختبار لإنهائه. قل: ابدأ الاختبار.", True, None
-        # Take a snapshot before popping
+            return copy.end_no_quiz, True, None
         snapshot = {
             "score": session.get("score", 0),
             "questions": list(session.get("questions", [])),
@@ -400,11 +432,11 @@ class QuizService:
         pct = round((score / max(1, total)) * 100)
         wrong = sorted(set(snapshot["wrong_topics"]))
         if wrong:
-            weak_text = f" تحتاج مزيداً من التمرين على: {', '.join(wrong)}."
+            weak_text = copy.end_weak.format(topics=", ".join(wrong))
         else:
-            weak_text = " أحسنت! أجبت على كل الأسئلة بشكل صحيح."
+            weak_text = copy.end_perfect
         return (
-            f"انتهى الاختبار. نتيجتك: {score} من {total}، أي {pct} بالمئة.{weak_text} إلى اللقاء!",
+            copy.end_score.format(score=score, total=total, pct=pct) + weak_text + copy.goodbye,
             True,
             snapshot,
         )
