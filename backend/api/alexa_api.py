@@ -8,12 +8,14 @@ from backend.config import QUESTION_CACHE_PATH, WEAK_CHUNK_THRESHOLD
 from backend.core.alexa_codes import normalize_alexa_link_code
 from backend.core.alexa_i18n import (
     detect_alexa_locale,
+    extract_user_utterance,
     get_alexa_copy,
     link_success_speech,
     quiz_start_intro,
     patient_quiz_errors,
     request_text_blob,
     resolve_effective_intent,
+    user_utterance_blob,
     wants_link,
     wants_start_quiz,
     wants_training_program,
@@ -23,6 +25,7 @@ from backend.core.quiz_logic import (
     SessionStore,
     QuizSelector,
     QuizService,
+    extract_mcq_from_utterance,
     normalize_mcq_letter,
 )
 from backend.database.connection import get_db
@@ -160,6 +163,36 @@ def _handle_start_quiz(
     )
 
 
+def _resolve_answer(intent: dict, data: dict, user_blob: str) -> str:
+    answer = _extract_answer(intent)
+    if answer:
+        return answer
+    utterance = user_blob or extract_user_utterance(intent, data)
+    return extract_mcq_from_utterance(utterance)
+
+
+def _handle_quiz_answer_attempt(
+    session_key: str,
+    intent: dict,
+    data: dict,
+    user_blob: str,
+    quiz: QuizService,
+    copy,
+):
+    """During an active quiz: parse A/B/C or ask to repeat — never restart."""
+    answer = _resolve_answer(intent, data, user_blob)
+    if answer:
+        text, end, quiz_reprompt = quiz.answer_and_next(session_key, answer)
+        rp = None if end else (quiz_reprompt or copy.reprompt_answer)
+        return build_alexa_response(text, end_session=end, reprompt=rp)
+    text, _ = quiz.repeat_current_question(session_key)
+    return build_alexa_response(
+        text,
+        end_session=False,
+        reprompt=copy.reprompt_answer,
+    )
+
+
 def create_alexa_app(
     cache: QuestionCache | None = None,
     session_store: SessionStore | None = None,
@@ -200,9 +233,10 @@ def create_alexa_app(
                 intent = req.get("intent", {})
                 intent_name = intent.get("name", "")
                 utterance_blob = request_text_blob(intent, data, locale)
+                user_blob = user_utterance_blob(intent, data, locale)
                 has_active_quiz = _sessions.get(session_key) is not None
                 intent_name = resolve_effective_intent(
-                    intent_name, utterance_blob, has_active_quiz, locale
+                    intent_name, user_blob or utterance_blob, has_active_quiz, locale
                 )
                 logger.info(
                     "Alexa locale=%s intent=%s effective=%s blob=%r active_quiz=%s",
@@ -214,9 +248,14 @@ def create_alexa_app(
                 )
 
                 if intent_name == "AMAZON.HelpIntent":
+                    if has_active_quiz:
+                        return build_alexa_response(
+                            copy.help_during_quiz,
+                            reprompt=copy.reprompt_answer,
+                        )
                     if not _is_user_linked(user_id):
                         return build_alexa_response(copy.welcome, reprompt=copy.reprompt_link)
-                    if wants_start_quiz(utterance_blob, locale):
+                    if wants_start_quiz(user_blob, locale):
                         return _handle_start_quiz(
                             session_key, user_id, _quiz, _sessions, locale, copy
                         )
@@ -227,6 +266,10 @@ def create_alexa_app(
                     return build_alexa_response(copy.stop, end_session=True)
 
                 if intent_name == "AMAZON.FallbackIntent":
+                    if has_active_quiz:
+                        return _handle_quiz_answer_attempt(
+                            session_key, intent, data, user_blob, _quiz, copy
+                        )
                     if not _is_user_linked(user_id):
                         if wants_training_program(utterance_blob, locale) and not wants_link(
                             utterance_blob, locale
@@ -246,7 +289,7 @@ def create_alexa_app(
                                 reprompt=copy.reprompt_link,
                             )
                         return build_alexa_response(copy.welcome, reprompt=copy.reprompt_link)
-                    if wants_start_quiz(utterance_blob, locale):
+                    if wants_start_quiz(user_blob, locale):
                         return _handle_start_quiz(
                             session_key, user_id, _quiz, _sessions, locale, copy
                         )
@@ -273,12 +316,16 @@ def create_alexa_app(
                     )
 
                 if intent_name == "StartQuizIntent":
+                    if has_active_quiz:
+                        return _handle_quiz_answer_attempt(
+                            session_key, intent, data, user_blob, _quiz, copy
+                        )
                     return _handle_start_quiz(
                         session_key, user_id, _quiz, _sessions, locale, copy
                     )
 
                 if intent_name == "AnswerIntent":
-                    answer = _extract_answer(intent)
+                    answer = _resolve_answer(intent, data, user_blob)
                     text, end, quiz_reprompt = _quiz.answer_and_next(session_key, answer)
                     rp = None if end else (quiz_reprompt or copy.reprompt_answer)
                     return build_alexa_response(text, end_session=end, reprompt=rp)
@@ -295,6 +342,11 @@ def create_alexa_app(
                     if snapshot and _is_user_linked(user_id):
                         result_msg = text + copy.quiz_end_dashboard
                     return build_alexa_response(result_msg, end_session=end)
+
+                if has_active_quiz:
+                    return _handle_quiz_answer_attempt(
+                        session_key, intent, data, user_blob, _quiz, copy
+                    )
 
             if _is_user_linked(user_id):
                 return build_alexa_response(

@@ -18,6 +18,7 @@ class AlexaCopy:
     welcome: str
     link_success: str
     help_linked: str
+    help_during_quiz: str
     stop: str
     fallback_try_quiz: str
     link_need_child: str
@@ -48,6 +49,10 @@ _AR = AlexaCopy(
     help_linked=(
         "لبدء البرنامج التدريبي قل: ابدأ الاختبار. "
         "أجب بأ أو ب أو ج. عند الانتهاء قل: أنهِ الاختبار."
+    ),
+    help_during_quiz=(
+        "أجب على السؤال الحالي بأ أو ب أو ج. "
+        "إذا لم أفهم، سأطلب منك إعادة الإجابة. للإنهاء قل: أنهِ الاختبار."
     ),
     stop="حسناً، توقفنا هنا. إلى اللقاء!",
     fallback_try_quiz="لتبدأ البرنامج قل: ابدأ الاختبار.",
@@ -96,6 +101,10 @@ _EN = AlexaCopy(
     help_linked=(
         "To begin, say: start the quiz. Answer with A, B, or C. "
         "When you're done, say: end quiz."
+    ),
+    help_during_quiz=(
+        "Answer the current question with A, B, or C. "
+        "If I don't understand, I'll ask you to repeat. To finish, say: end quiz."
     ),
     stop="Quiz stopped. Goodbye!",
     fallback_try_quiz="Say: start the quiz to begin your training program.",
@@ -165,14 +174,38 @@ def quiz_start_intro(copy: AlexaCopy, locale: AlexaLocale, patient_name: str | N
     return copy.quiz_intro
 
 
-def request_text_blob(intent: dict, payload: dict | None, locale: AlexaLocale) -> str:
-    parts: list[str] = []
+def extract_user_utterance(intent: dict, payload: dict | None) -> str:
+    """Spoken/typed user text only — avoids false matches from intent JSON."""
     if payload:
         req = payload.get("request") or {}
         for key in ("input", "query", "utterance"):
             val = req.get(key)
-            if val:
-                parts.append(str(val))
+            if val and isinstance(val, str):
+                return val.strip()
+    slots = intent.get("slots", {}) or {}
+    for slot in slots.values():
+        if not isinstance(slot, dict):
+            continue
+        val = slot.get("value")
+        if val and isinstance(val, str):
+            return val.strip()
+    return ""
+
+
+def user_utterance_blob(intent: dict, payload: dict | None, locale: AlexaLocale) -> str:
+    raw = extract_user_utterance(intent, payload)
+    if not raw:
+        return ""
+    if locale == "en":
+        return raw.lower()
+    return normalize_arabic_speech(raw)
+
+
+def request_text_blob(intent: dict, payload: dict | None, locale: AlexaLocale) -> str:
+    parts: list[str] = []
+    user = extract_user_utterance(intent, payload)
+    if user:
+        parts.append(user)
     parts.append(json.dumps(intent, ensure_ascii=False))
     raw = " ".join(parts)
     if locale == "en":
@@ -201,16 +234,17 @@ def wants_start_quiz(blob: str, locale: AlexaLocale) -> bool:
     if locale == "en":
         return bool(
             re.search(
-                r"\b(start|begin|open|resume)\b.*\b(quiz|test|training|program)\b|"
-                r"\b(training program|start quiz|begin quiz|open training)\b|"
-                r"\bquiz\b|\btraining\b",
+                r"\b(start|begin|open)\s+(the\s+)?(quiz|test|training(\s+program)?)\b|"
+                r"\bstart\s+the\s+quiz\b|\bbegin\s+the\s+quiz\b",
                 blob,
             )
         )
     return bool(
         re.search(
-            r"(ابدأ|ابدا|ابدئ|بدا|بدء|ابد|افتح|start|"
-            r"البرنامج|برنامج|تدريب|اختبار|كويز|quiz)",
+            r"(ابدأ\s+الاختبار|ابدا\s+الاختبار|ابدأ\s+البرنامج|ابدا\s+البرنامج|"
+            r"ابدأ\s+البرنامج\s+التدريبي|ابدا\s+البرنامج\s+التدريبي|"
+            r"ابد\s+الاختبار|ابدا\s+الاختبار|بدا\s+الاختبار|بدء\s+الاختبار|"
+            r"افتح\s+البرنامج|^\s*(ابدأ|ابدا|ابدئ)\s*$|start\s+quiz)",
             blob,
         )
     )
@@ -254,6 +288,7 @@ class QuizRuntimeCopy:
     no_active: str
     no_question: str
     bad_answer: str
+    bad_answer_repeat: str
     correct: str
     wrong: str
     no_more: str
@@ -268,7 +303,8 @@ class QuizRuntimeCopy:
 _QUIZ_AR = QuizRuntimeCopy(
     no_active="لا يوجد برنامج نشط. قل: ابدأ الاختبار.",
     no_question="لا يوجد سؤال الآن. قل: ابدأ الاختبار.",
-    bad_answer="لم أفهم. قل بوضوح: أ، أو ب، أو ج.",
+    bad_answer="لم أفهم إجابتك. أعد قول الإجابة: أ، أو ب، أو ج.",
+    bad_answer_repeat="لم أفهم إجابتك. أعد الإجابة بوضوح. ",
     correct="أحسنت! إجابة صحيحة.",
     wrong="لا بأس. الإجابة الصحيحة هي {letter}.",
     no_more=" انتهت الأسئلة. قل: أنهِ الاختبار لسماع نتيجتك.",
@@ -283,7 +319,8 @@ _QUIZ_AR = QuizRuntimeCopy(
 _QUIZ_EN = QuizRuntimeCopy(
     no_active="There is no active quiz. Say: start the quiz.",
     no_question="No question loaded. Say: start the quiz.",
-    bad_answer="I didn't understand. Say A, B, or C.",
+    bad_answer="I didn't understand your answer. Please say A, B, or C again.",
+    bad_answer_repeat="I didn't catch that. Say your answer again. ",
     correct="Correct!",
     wrong="Wrong. The correct answer is {letter}.",
     no_more=" No more questions. Say: end quiz to hear your score.",

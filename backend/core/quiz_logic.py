@@ -42,6 +42,26 @@ def normalize_mcq_letter(raw: str) -> str:
     return ""
 
 
+def extract_mcq_from_utterance(text: str) -> str:
+    """Try to pull A/B/C from free-form speech when AnswerIntent slot is empty."""
+    s = (text or "").strip()
+    if not s:
+        return ""
+    letter = normalize_mcq_letter(s)
+    if letter:
+        return letter
+    m = re.search(
+        r"(?:^|[\s،,.؟!])([أبج]|ا|آ|إ)(?:[\s،,.؟!]|$)",
+        s,
+    )
+    if m:
+        return normalize_mcq_letter(m.group(1))
+    m = re.search(r"\b([ABCabc])\b", s)
+    if m:
+        return m.group(1).upper()
+    return ""
+
+
 class QuizGenerator:
     """Generate MCQ questions from text via the Groq API."""
 
@@ -345,6 +365,22 @@ class QuizService:
             return s["locale"]
         return "ar"
 
+    def repeat_current_question(self, session_id: str) -> tuple[str, bool]:
+        """Ask the user to repeat their answer and re-read the current question."""
+        from backend.core.alexa_i18n import get_quiz_copy
+
+        locale = self._session_locale(session_id)
+        copy = get_quiz_copy(locale)
+        if not self._sessions.get(session_id):
+            return copy.no_active, False
+        current = self._sessions.get_current_question(session_id)
+        if not current:
+            return copy.no_question, False
+        q_text = self._cache.format_for_speech(
+            current, first_question=False, is_next=False, locale=locale
+        )
+        return copy.bad_answer_repeat + q_text, False
+
     def start_quiz(
         self,
         session_id: str,
@@ -381,7 +417,8 @@ class QuizService:
         correct = (current.get("correct") or "").strip().upper()
         user = normalize_mcq_letter(user_answer)
         if not user:
-            return copy.bad_answer, False, None
+            speech, _ = self.repeat_current_question(session_id)
+            return speech, False, None
         if user == correct:
             self._sessions.increment_score(session_id)
             feedback = copy.correct
