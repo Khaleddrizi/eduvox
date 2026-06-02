@@ -1,4 +1,4 @@
-"""Scripted «مغامرة النجوم» training flow for Alexa (ages 6–8, voice answers)."""
+"""Scripted «مغامرة النجوم» training flow for Alexa (ages 6–8, numbered answers 1–3)."""
 from __future__ import annotations
 
 import json
@@ -6,13 +6,15 @@ import logging
 import re
 from typing import Any
 
-from backend.core.alexa_codes import canonical_arabic_answer, normalize_arabic_speech
+from backend.core.alexa_codes import normalize_arabic_speech
 from backend.core.quiz_logic import normalize_mcq_letter
 
 logger = logging.getLogger("AlexaQuiz.Adventure")
 
 ADVENTURE_PREFIX = "ADVENTURE:"
 ADVENTURE_ATTR_KEY = "atheeria_adventure"
+
+_ORDINAL_SPEECH = ("الأول", "الثاني", "الثالث")
 
 _READY_YES = frozenset(
     normalize_arabic_speech(w)
@@ -45,13 +47,25 @@ _READY_YES = frozenset(
     )
 )
 
+# spoken word / ordinal → choice index 1–3
+_CHOICE_ALIASES: dict[str, int] = {}
+for _n, _words in enumerate(
+    (
+        ("1", "١", "واحد", "وحده", "واحده", "الاول", "اول", "اولى", "الاولى", "الأول"),
+        ("2", "٢", "اثنان", "اثنين", "ثنين", "تنين", "الثاني", "ثاني", "التاني", "الثانيه", "الثانية"),
+        ("3", "٣", "ثلاثة", "ثلاث", "ثلاثه", "تلاتة", "تلات", "الثالث", "ثالث", "التالت", "الثالثه"),
+    ),
+    start=1,
+):
+    for w in _words:
+        _CHOICE_ALIASES[normalize_arabic_speech(w)] = _n
+
 
 def adventure_chunk(
     order: int,
     step_type: str,
     *,
     stage_title: str = "",
-    accepted: list[str] | None = None,
     counts_star: bool = False,
     success_feedback: str = "",
 ) -> str:
@@ -59,11 +73,10 @@ def adventure_chunk(
         "o": order,
         "t": step_type,
         "star": counts_star,
+        "ans": "num" if step_type == "question" else "ready",
     }
     if stage_title:
         meta["st"] = stage_title
-    if accepted:
-        meta["a"] = accepted
     if success_feedback:
         meta["ok"] = success_feedback
     return ADVENTURE_PREFIX + json.dumps(meta, ensure_ascii=False)
@@ -103,82 +116,56 @@ def _norm(text: str) -> str:
 def _clean_answer_phrase(blob: str) -> str:
     n = _norm(blob)
     n = re.sub(
-        r"^(الجواب|جواب|اجابتي|إجابتي|اجابة|إجابة|قل|قول|انا|أنا)\s+",
+        r"^(الجواب|جواب|اجابتي|إجابتي|اجابة|إجابة|قل|قول|رقم|الاجابة)\s*",
         "",
         n,
     ).strip()
-    return n
+    n = re.sub(r"[\.\u00B7\u2022\u06D4\u0640]", "", n)
+    return n.strip()
 
 
-def _compact_answer(blob: str) -> str:
-    """ك.ل.ب or ك ل ب → كلب for matching."""
-    return canonical_arabic_answer(_clean_answer_phrase(blob))
+def correct_choice_index(step: dict) -> int:
+    letter = (step.get("correct") or "A").strip().upper()
+    return {"A": 1, "B": 2, "C": 3}.get(letter, 1)
 
 
-def _levenshtein(a: str, b: str) -> int:
-    if len(a) < len(b):
-        return _levenshtein(b, a)
-    if not b:
-        return len(a)
-    prev = list(range(len(b) + 1))
-    for i, ca in enumerate(a):
-        curr = [i + 1]
-        for j, cb in enumerate(b):
-            curr.append(min(prev[j + 1] + 1, curr[j] + 1, prev[j] + (ca != cb)))
-        prev = curr
-    return prev[-1]
+def parse_adventure_choice(text: str) -> int | None:
+    """Map spoken answer to choice index 1, 2, or 3."""
+    raw = (text or "").strip()
+    if not raw:
+        return None
 
+    cleaned = _clean_answer_phrase(raw)
+    if cleaned:
+        compact = re.sub(r"\s+", "", cleaned)
+        if compact in _CHOICE_ALIASES:
+            return _CHOICE_ALIASES[compact]
 
-def _word_match(blob: str, word: str) -> bool:
-    blob_compact = _compact_answer(blob)
-    word_compact = _compact_answer(word)
-    blob_norm = _clean_answer_phrase(blob)
-    word_norm = _clean_answer_phrase(word)
-    if not blob_compact and not blob_norm:
-        return False
-    if not word_compact and not word_norm:
-        return False
-    if blob_compact and word_compact and blob_compact == word_compact:
-        return True
-    if blob_norm == word_norm:
-        return True
-    blob_tokens = blob_norm.split()
-    if word_norm in blob_tokens:
-        return True
-    if word_norm in blob_norm or blob_norm in word_norm:
-        return True
-    if blob_compact and word_compact:
-        if blob_compact.startswith("ال") and blob_compact[2:] == word_compact:
-            return True
-        if word_compact.startswith("ال") and word_compact[2:] == blob_compact:
-            return True
-        if len(word_compact) >= 3 and len(blob_compact) >= 3:
-            if _levenshtein(blob_compact, word_compact) <= 1:
-                return True
-    return False
+        if compact.isdigit() and compact in ("1", "2", "3"):
+            return int(compact)
 
+        for token in cleaned.split():
+            t = re.sub(r"\s+", "", token)
+            if t in _CHOICE_ALIASES:
+                return _CHOICE_ALIASES[t]
 
-def _option_label(opt: str) -> str:
-    s = (opt or "").strip()
-    s = re.sub(r"^[أبجABCabc]\)\s*", "", s).strip()
-    return _norm(s)
+        for word, idx in _CHOICE_ALIASES.items():
+            if len(word) >= 3 and word in compact:
+                return idx
 
+        m = re.search(r"(ال?(?:اول|اولى|ثاني|ثانيه|ثالث|ثالثه|تاني|تالت))", compact)
+        if m:
+            return _CHOICE_ALIASES.get(m.group(1))
 
-def _accepted_for_step(step: dict) -> list[str]:
-    meta = step.get("_meta") or {}
-    words = [_norm(w) for w in meta.get("a") or [] if w]
-    opts = step.get("options") or {}
-    correct = (step.get("correct") or "").strip().upper()
-    if correct in opts:
-        label = _option_label(opts[correct])
-        if label and label not in words:
-            words.append(label)
-    for key in ("A", "B", "C"):
-        if key in opts:
-            label = _option_label(opts[key])
-            if label and label not in words:
-                words.append(label)
-    return [w for w in words if w]
+    letter = normalize_mcq_letter(raw)
+    if letter == "A":
+        return 1
+    if letter == "B":
+        return 2
+    if letter == "C":
+        return 3
+
+    return None
 
 
 def _matches_readiness(blob: str) -> bool:
@@ -215,55 +202,85 @@ def infer_yes_from_intent(intent_name: str) -> str | None:
 
 
 def match_adventure_answer(user_text: str, step: dict) -> bool:
-    blob = _clean_answer_phrase(user_text)
-    if not blob:
-        return False
     step_type = (step.get("_meta") or {}).get("t", "question")
     if step_type == "readiness":
         return _matches_readiness(user_text)
-    accepted = _accepted_for_step(step)
-    for word in accepted:
-        if word and _word_match(blob, word):
-            return True
-    letter = normalize_mcq_letter(user_text)
-    correct = (step.get("correct") or "").strip().upper()
-    if letter and correct and letter == correct:
-        return True
-    digits = re.sub(r"\D", "", blob)
-    for word in accepted:
-        wd = re.sub(r"\D", "", word)
-        if wd and digits and wd == digits:
-            return True
-    return False
+    choice = parse_adventure_choice(user_text)
+    if choice is None:
+        return False
+    return choice == correct_choice_index(step)
 
 
 def adventure_speech_hint(session: dict | None) -> str:
-    """Short reprompt when Amazon sends no slot text (FallbackIntent)."""
     if not session:
-        return "قل إجابتك بكلمة واحدة."
+        return "قل: واحد، اثنان، أو ثلاثة."
     steps = session.get("adventure_steps") or []
     idx = int(session.get("step_index", 0))
     if idx >= len(steps):
-        return "قل إجابتك بكلمة واحدة."
+        return "قل: واحد، اثنان، أو ثلاثة."
     step = steps[idx]
     meta = step.get("_meta") or {}
     if meta.get("t") == "readiness":
         return "قل: نعم، أو جاهز."
-    accepted = _accepted_for_step(step)
-    if accepted:
-        return f"قل كلمة واحدة، مثل: {accepted[0]}."
-    return "قل إجابتك بكلمة واحدة."
+    return "قل: واحد، اثنان، أو ثلاثة. أو: الأول، الثاني، الثالث."
 
 
 def pick_speech_for_step(candidates: list[str], step: dict) -> str:
-    """Prefer a candidate that matches; else longest non-empty string."""
+    """Prefer a candidate that parses to the correct choice index."""
+    if (step.get("_meta") or {}).get("t") == "readiness":
+        for c in candidates:
+            if c and match_adventure_answer(c, step):
+                return c.strip()
+        for c in candidates:
+            if c and c.strip():
+                return c.strip()
+        return ""
+
+    expected = correct_choice_index(step)
     for c in candidates:
-        if c and match_adventure_answer(c, step):
+        if c and parse_adventure_choice(c) == expected:
+            return c.strip()
+    for c in candidates:
+        if c and parse_adventure_choice(c) is not None:
             return c.strip()
     non_empty = [c.strip() for c in candidates if c and c.strip()]
     if non_empty:
         return max(non_empty, key=len)
     return ""
+
+
+def _option_label(opt: str) -> str:
+    s = (opt or "").strip()
+    s = re.sub(r"^[أبجABCabc]\)\s*", "", s).strip()
+    return s
+
+
+def format_step_speech(step: dict, *, patient_name: str | None = None, prefix: str = "") -> str:
+    parts: list[str] = []
+    if prefix:
+        parts.append(prefix.strip() + " ")
+    meta = step.get("_meta") or {}
+    step_type = meta.get("t", "question")
+    if step_type == "question" and meta.get("st"):
+        parts.append(f"{meta['st']}. ")
+    question = (step.get("question") or "").strip()
+    if question:
+        parts.append(question)
+    opts = step.get("options") or {}
+    if step_type == "question":
+        labels = []
+        for i, key in enumerate(("A", "B", "C")):
+            text = _option_label(opts.get(key, ""))
+            if text and text != "-":
+                labels.append(f"الجواب {_ORDINAL_SPEECH[i]}: {text}")
+        if labels:
+            parts.append(" ")
+            parts.append(". ".join(labels) + ". ")
+            parts.append("قل رقم الجواب: واحد، اثنان، أو ثلاثة.")
+    text = "".join(parts)
+    if patient_name and step_type == "readiness" and not prefix:
+        return f"أهلاً {patient_name}! {text}"
+    return text
 
 
 def export_adventure_session_attributes(session: dict | None) -> dict[str, str] | None:
@@ -276,6 +293,7 @@ def export_adventure_session_attributes(session: dict | None) -> dict[str, str] 
         "max_stars": int(session.get("max_stars", 0)),
         "patient_id": session.get("patient_id"),
         "locale": session.get("locale", "ar"),
+        "ans": "num",
     }
     return {ADVENTURE_ATTR_KEY: json.dumps(payload, ensure_ascii=False)}
 
@@ -336,27 +354,8 @@ def restore_adventure_session(
     return True
 
 
-def format_step_speech(step: dict, *, patient_name: str | None = None, prefix: str = "") -> str:
-    parts: list[str] = []
-    if prefix:
-        parts.append(prefix.strip() + " ")
-    meta = step.get("_meta") or {}
-    step_type = meta.get("t", "question")
-    if step_type == "question" and meta.get("st"):
-        parts.append(f"{meta['st']}. ")
-    question = (step.get("question") or "").strip()
-    if question:
-        parts.append(question)
-    if not parts and question:
-        return question
-    text = "".join(parts)
-    if patient_name and step_type == "readiness" and not prefix:
-        return f"أهلاً {patient_name}! {text}"
-    return text
-
-
 class AdventureQuizService:
-    """Linear scripted session with stars (no MCQ letters spoken)."""
+    """Linear scripted session with stars (numbered answers 1–3)."""
 
     def __init__(self, session_store):
         self._sessions = session_store
@@ -407,8 +406,9 @@ class AdventureQuizService:
         idx = s.get("step_index", 0)
         if idx >= len(steps):
             return "انتهت المغامرة.", True
+        hint = adventure_speech_hint(s)
         return (
-            "لم أفهم إجابتك. أعد قول إجابتك بوضوح. "
+            f"لم أفهم رقم جوابك. {hint} "
             + format_step_speech(steps[idx]),
             False,
         )
@@ -418,7 +418,7 @@ class AdventureQuizService:
     ) -> tuple[str, bool, dict | None]:
         s = self._session(session_id)
         if not s or s.get("mode") != "adventure":
-            return "لا يوجد برنامج نشط. قل: ابدأ الاختبار.", False, None  # noqa: RET504
+            return "لا يوجد برنامج نشط. قل: ابدأ الاختبار.", False, None
         steps: list[dict] = s.get("adventure_steps") or []
         idx = int(s.get("step_index", 0))
         if idx >= len(steps):
@@ -428,11 +428,11 @@ class AdventureQuizService:
         step = steps[idx]
         if not match_adventure_answer(user_text, step):
             logger.info(
-                "Adventure no match step=%s heard=%r compact=%r accepted=%s",
+                "Adventure no match step=%s heard=%r parsed=%s expected=%s",
                 (step.get("_meta") or {}).get("o"),
                 user_text,
-                _compact_answer(user_text),
-                _accepted_for_step(step),
+                parse_adventure_choice(user_text),
+                correct_choice_index(step),
             )
             speech, _ = self.repeat_current(session_id)
             return speech, False, None

@@ -500,7 +500,7 @@ _READYKIDS_ADHD_QUESTIONS: list[dict] = [
     },
 ]
 
-# Ready «مغامرة النجوم» — scripted adventure for ages 6–8 (voice answers, stars).
+# Ready «مغامرة النجوم» — scripted adventure (6–8): numbered answers 1–3.
 _READYKIDS_STARS_ADVENTURE_BASE = "مغامرة النجوم (6-8 سنوات)"
 
 
@@ -515,25 +515,19 @@ def _stars_adventure_specs() -> list[dict]:
             ),
             "options": {"A": "-", "B": "-", "C": "-"},
             "correct": "A",
-            "chunk_text": adventure_chunk(
-                0,
-                "readiness",
-                accepted=["نعم", "أيوه", "جاهز", "مستعد", "تمام"],
-            ),
+            "chunk_text": adventure_chunk(0, "readiness"),
         },
         {
             "question": (
                 "المرحلة الأولى: الانتباه السمعي. "
-                "استمع جيداً. قلت: قطة، كلب، تفاحة. "
-                "ما اسم الحيوان الذي ينبح؟"
+                "استمع جيداً. سمعت: قطة، كلب، تفاحة. "
+                "أي حيوان ينبح؟"
             ),
             "options": {"A": "قطة", "B": "كلب", "C": "تفاحة"},
             "correct": "B",
             "chunk_text": adventure_chunk(
                 1,
                 "question",
-                stage_title="",
-                accepted=["كلب", "الكلب", "كليب", "كالب"],
                 counts_star=True,
                 success_feedback="ممتاز! حصلت على نجمة.",
             ),
@@ -541,14 +535,14 @@ def _stars_adventure_specs() -> list[dict]:
         {
             "question": (
                 "المرحلة الثانية: الذاكرة القصيرة. "
-                "تذكر هذه الأرقام: 3، 7، 2. ما الرقم الأخير؟"
+                "تذكّر هذه الأرقام: 3، 7، 2. "
+                "ما الرقم الأخير في القائمة؟"
             ),
             "options": {"A": "3", "B": "7", "C": "2"},
             "correct": "C",
             "chunk_text": adventure_chunk(
                 2,
                 "question",
-                accepted=["2", "اثنان", "إثنان", "ثنتان", "اثنين"],
                 counts_star=True,
                 success_feedback="رائع! ذاكرتك قوية. نجمة.",
             ),
@@ -556,15 +550,13 @@ def _stars_adventure_specs() -> list[dict]:
         {
             "question": (
                 "المرحلة الثالثة: اكتشاف الخطأ. "
-                "أي كلمة لا تنتمي إلى المجموعة؟ "
-                "سيارة، حافلة، دراجة، موزة."
+                "أي كلمة لا تنتمي إلى المجموعة؟"
             ),
             "options": {"A": "سيارة", "B": "حافلة", "C": "موزة"},
             "correct": "C",
             "chunk_text": adventure_chunk(
                 3,
                 "question",
-                accepted=["موزة", "الموزة", "موز", "موزه"],
                 counts_star=True,
                 success_feedback="أحسنت! لقد اكتشفت الدخيل. نجمة.",
             ),
@@ -572,14 +564,14 @@ def _stars_adventure_specs() -> list[dict]:
         {
             "question": (
                 "المرحلة الرابعة: التركيز. "
-                "تخيل إشارة المرور. ما لون الضوء الذي يعني توقف؟"
+                "تخيل إشارة المرور. "
+                "ما لون الضوء الذي يعني توقف؟"
             ),
             "options": {"A": "أخضر", "B": "أصفر", "C": "أحمر"},
             "correct": "C",
             "chunk_text": adventure_chunk(
                 4,
                 "question",
-                accepted=["أحمر", "الاحمر", "احمر", "حمر", "حمراء", "الأحمر"],
                 counts_star=True,
                 success_feedback="أحسنت! نجمة.",
             ),

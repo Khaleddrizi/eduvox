@@ -123,9 +123,9 @@ export const PORTAL_PAGES_AR: PortalPagesTable = {
   "sp.library.toastReadyKidsFail": "تعذّر إضافة البرنامج الجاهز",
   "sp.library.starsAdventureTitle": "مغامرة النجوم (6–8 سنوات)",
   "sp.library.starsAdventureHint":
-    "برنامج تدريبي مسرّح على Alexa: إجابات صوتية مباشرة (كلب، موزة…) ونجوم — بدون أ، ب، ج.",
+    "برنامج مسرّح على Alexa: الطفل يجيب برقم أو ترتيب (واحد، اثنان، الأول، الثاني…) ونجوم.",
   "sp.library.starsAdventureFlow":
-    "اربط الطفل على Alexa ← ابدأ الاختبار ← قل نعم عند الجاهزية ← أجب بصوتك على كل سؤال.",
+    "اربط على Alexa ← ابدأ الاختبار ← نعم ← قل واحد/اثنان/ثلاثة أو الأول/الثاني/الثالث.",
   "sp.library.starsAdventureBtn": "إضافة مغامرة النجوم",
   "sp.library.toastStarsAdventureOk": "تمت إضافة مغامرة النجوم ({n} خطوات).",
   "sp.library.toastStarsAdventureFail": "تعذّر إضافة مغامرة النجوم",
@@ -348,9 +348,9 @@ export const PORTAL_PAGES_AR: PortalPagesTable = {
   "pa.library.toastReadyKidsFail": "تعذّر إضافة البرنامج الجاهز",
   "pa.library.starsAdventureTitle": "مغامرة النجوم (6–8 سنوات)",
   "pa.library.starsAdventureHint":
-    "برنامج تدريبي مسرّح على Alexa: إجابات صوتية مباشرة ونجوم — للأطفال 6–8 سنوات.",
+    "برنامج مسرّح على Alexa: الطفل يجيب برقم أو ترتيب (واحد، اثنان، الأول…) ونجوم.",
   "pa.library.starsAdventureFlow":
-    "اربط الطفل على Alexa ← ابدأ الاختبار ← نعم ← أجب بصوتك على كل سؤال.",
+    "اربط على Alexa ← ابدأ الاختبار ← نعم ← واحد/اثنان/ثلاثة أو الأول/الثاني/الثالث.",
   "pa.library.starsAdventureBtn": "إضافة مغامرة النجوم",
   "pa.library.toastStarsAdventureOk": "تمت إضافة مغامرة النجوم ({n} خطوات).",
   "pa.library.toastStarsAdventureFail": "تعذّر إضافة مغامرة النجوم",
@@ -528,9 +528,9 @@ export const PORTAL_PAGES_EN: PortalPagesTable = {
   "sp.library.toastReadyKidsFail": "Could not add the ready program",
   "sp.library.starsAdventureTitle": "Stars Adventure (ages 6–8)",
   "sp.library.starsAdventureHint":
-    "Scripted Alexa program: speak answers directly (dog, banana…) and earn stars — no A, B, C.",
+    "Scripted Alexa program: answer by number or order (one, two, first, second…) and earn stars.",
   "sp.library.starsAdventureFlow":
-    "Link the child on Alexa → start the quiz → say yes when ready → answer each question by voice.",
+    "Link on Alexa → start quiz → yes → say one/two/three or first/second/third.",
   "sp.library.starsAdventureBtn": "Add Stars Adventure",
   "sp.library.toastStarsAdventureOk": "Stars Adventure added ({n} steps).",
   "sp.library.toastStarsAdventureFail": "Could not add Stars Adventure",
@@ -753,9 +753,9 @@ export const PORTAL_PAGES_EN: PortalPagesTable = {
   "pa.library.toastReadyKidsFail": "Could not add the ready program",
   "pa.library.starsAdventureTitle": "Stars Adventure (ages 6–8)",
   "pa.library.starsAdventureHint":
-    "Scripted Alexa training for children 6–8: voice answers and stars.",
+    "Scripted Alexa for ages 6–8: answer by number or order and earn stars.",
   "pa.library.starsAdventureFlow":
-    "Link on Alexa → start the quiz → yes → answer by voice.",
+    "Link on Alexa → start quiz → yes → one/two/three or first/second/third.",
   "pa.library.starsAdventureBtn": "Add Stars Adventure",
   "pa.library.toastStarsAdventureOk": "Stars Adventure added ({n} steps).",
   "pa.library.toastStarsAdventureFail": "Could not add Stars Adventure",
