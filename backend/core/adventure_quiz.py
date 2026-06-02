@@ -2,13 +2,17 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from typing import Any
 
 from backend.core.alexa_codes import normalize_arabic_speech
 from backend.core.quiz_logic import normalize_mcq_letter
 
+logger = logging.getLogger("AlexaQuiz.Adventure")
+
 ADVENTURE_PREFIX = "ADVENTURE:"
+ADVENTURE_ATTR_KEY = "atheeria_adventure"
 
 _READY_YES = frozenset(
     normalize_arabic_speech(w)
@@ -96,6 +100,51 @@ def _norm(text: str) -> str:
     return normalize_arabic_speech((text or "").strip())
 
 
+def _clean_answer_phrase(blob: str) -> str:
+    n = _norm(blob)
+    n = re.sub(
+        r"^(الجواب|جواب|اجابتي|إجابتي|اجابة|إجابة|قل|قول|انا|أنا)\s+",
+        "",
+        n,
+    ).strip()
+    return n
+
+
+def _levenshtein(a: str, b: str) -> int:
+    if len(a) < len(b):
+        return _levenshtein(b, a)
+    if not b:
+        return len(a)
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a):
+        curr = [i + 1]
+        for j, cb in enumerate(b):
+            curr.append(min(prev[j + 1] + 1, curr[j] + 1, prev[j] + (ca != cb)))
+        prev = curr
+    return prev[-1]
+
+
+def _word_match(blob: str, word: str) -> bool:
+    blob = _clean_answer_phrase(blob)
+    word = _clean_answer_phrase(word)
+    if not blob or not word:
+        return False
+    if blob == word:
+        return True
+    blob_tokens = blob.split()
+    if word in blob_tokens:
+        return True
+    if word in blob or blob in word:
+        return True
+    if blob.startswith("ال") and blob[2:] == word:
+        return True
+    if word.startswith("ال") and word[2:] == blob:
+        return True
+    if len(word) >= 3 and len(blob) >= 3 and _levenshtein(blob, word) <= 1:
+        return True
+    return False
+
+
 def _option_label(opt: str) -> str:
     s = (opt or "").strip()
     s = re.sub(r"^[أبجABCabc]\)\s*", "", s).strip()
@@ -153,7 +202,7 @@ def infer_yes_from_intent(intent_name: str) -> str | None:
 
 
 def match_adventure_answer(user_text: str, step: dict) -> bool:
-    blob = _norm(user_text)
+    blob = _clean_answer_phrase(user_text)
     if not blob:
         return False
     step_type = (step.get("_meta") or {}).get("t", "question")
@@ -161,9 +210,7 @@ def match_adventure_answer(user_text: str, step: dict) -> bool:
         return _matches_readiness(user_text)
     accepted = _accepted_for_step(step)
     for word in accepted:
-        if not word:
-            continue
-        if blob == word or word in blob or blob in word:
+        if word and _word_match(blob, word):
             return True
     letter = normalize_mcq_letter(user_text)
     correct = (step.get("correct") or "").strip().upper()
@@ -175,6 +222,87 @@ def match_adventure_answer(user_text: str, step: dict) -> bool:
         if wd and digits and wd == digits:
             return True
     return False
+
+
+def pick_speech_for_step(candidates: list[str], step: dict) -> str:
+    """Prefer a candidate that matches; else longest non-empty string."""
+    for c in candidates:
+        if c and match_adventure_answer(c, step):
+            return c.strip()
+    non_empty = [c.strip() for c in candidates if c and c.strip()]
+    if non_empty:
+        return max(non_empty, key=len)
+    return ""
+
+
+def export_adventure_session_attributes(session: dict | None) -> dict[str, str] | None:
+    if not session or session.get("mode") != "adventure":
+        return None
+    payload = {
+        "mode": "adventure",
+        "step_index": int(session.get("step_index", 0)),
+        "stars": int(session.get("stars", 0)),
+        "max_stars": int(session.get("max_stars", 0)),
+        "patient_id": session.get("patient_id"),
+        "locale": session.get("locale", "ar"),
+    }
+    return {ADVENTURE_ATTR_KEY: json.dumps(payload, ensure_ascii=False)}
+
+
+def restore_adventure_session(
+    session_store,
+    session_key: str,
+    attributes: dict,
+    questions: list[dict],
+    *,
+    patient_id: int | None = None,
+    patient_name: str | None = None,
+) -> bool:
+    raw = (attributes or {}).get(ADVENTURE_ATTR_KEY)
+    if not raw:
+        return False
+    try:
+        meta = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return False
+    if meta.get("mode") != "adventure":
+        return False
+    steps = adventure_steps_from_questions(questions)
+    if not steps:
+        return False
+    step_index = int(meta.get("step_index", 0))
+    step_index = max(0, min(step_index, len(steps) - 1))
+    session_store.set(
+        session_key,
+        questions=[steps[step_index]],
+        question_pool=steps,
+        score=int(meta.get("stars", 0)),
+        wrong_topics=[],
+        locale=meta.get("locale", "ar"),
+    )
+    s = session_store.get(session_key)
+    if not s:
+        return False
+    s["mode"] = "adventure"
+    s["adventure_steps"] = steps
+    s["step_index"] = step_index
+    s["stars"] = int(meta.get("stars", 0))
+    s["max_stars"] = int(meta.get("max_stars", 0)) or sum(
+        1 for x in steps if (x.get("_meta") or {}).get("star")
+    )
+    s["current_index"] = 0
+    pid = patient_id or meta.get("patient_id")
+    if pid:
+        s["patient_id"] = pid
+    if patient_name:
+        s["patient_name"] = patient_name
+    logger.info(
+        "Restored adventure session key=%s step=%s stars=%s",
+        session_key[:12],
+        step_index,
+        s.get("stars"),
+    )
+    return True
 
 
 def format_step_speech(step: dict, *, patient_name: str | None = None, prefix: str = "") -> str:
@@ -268,6 +396,13 @@ class AdventureQuizService:
             return self._outro(s), True, snapshot
         step = steps[idx]
         if not match_adventure_answer(user_text, step):
+            logger.info(
+                "Adventure no match step=%s heard=%r accepted=%s intent_step_type=%s",
+                (step.get("_meta") or {}).get("o"),
+                user_text,
+                _accepted_for_step(step),
+                (step.get("_meta") or {}).get("t"),
+            )
             speech, _ = self.repeat_current(session_id)
             return speech, False, None
 

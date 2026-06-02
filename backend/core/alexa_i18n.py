@@ -177,8 +177,47 @@ def quiz_start_intro(copy: AlexaCopy, locale: AlexaLocale, patient_name: str | N
     return copy.quiz_intro
 
 
-def extract_user_utterance(intent: dict, payload: dict | None) -> str:
-    """Spoken/typed user text from Alexa request (not full intent JSON)."""
+def _add_speech_part(parts: list[str], val: object) -> None:
+    if val is None:
+        return
+    if isinstance(val, str):
+        s = val.strip()
+        if s and s not in parts:
+            parts.append(s)
+        return
+    if isinstance(val, dict):
+        for key in ("value", "name", "text", "input", "utterance"):
+            inner = val.get(key)
+            if isinstance(inner, str) and inner.strip():
+                _add_speech_part(parts, inner.strip())
+
+
+def _walk_slot_for_speech(slot: dict, parts: list[str]) -> None:
+    if not isinstance(slot, dict):
+        return
+    _add_speech_part(parts, slot.get("value"))
+    original = slot.get("originalValue")
+    if isinstance(original, str):
+        _add_speech_part(parts, original)
+    elif isinstance(original, dict):
+        _add_speech_part(parts, original.get("value"))
+    slot_value = slot.get("slotValue")
+    if isinstance(slot_value, dict):
+        _add_speech_part(parts, slot_value.get("value"))
+    if slot.get("resolutions"):
+        try:
+            per_auth = slot["resolutions"].get("resolutionsPerAuthority", [])
+            for authority in per_auth:
+                for item in authority.get("values", []):
+                    value = item.get("value", {})
+                    _add_speech_part(parts, value.get("name"))
+                    _add_speech_part(parts, value.get("id"))
+        except (KeyError, IndexError, TypeError):
+            pass
+
+
+def collect_speech_candidates(intent: dict, payload: dict | None) -> list[str]:
+    """All strings Alexa might have captured as the user's words."""
     parts: list[str] = []
     if payload:
         req = payload.get("request") or {}
@@ -192,37 +231,19 @@ def extract_user_utterance(intent: dict, payload: dict | None) -> str:
         ):
             val = req.get(key)
             if val and isinstance(val, str):
-                parts.append(val.strip())
+                _add_speech_part(parts, val)
     slots = intent.get("slots", {}) or {}
     for slot in slots.values():
-        if not isinstance(slot, dict):
-            continue
-        for key in ("value",):
-            val = slot.get(key)
-            if val and isinstance(val, str):
-                parts.append(val.strip())
-        slot_value = slot.get("slotValue")
-        if isinstance(slot_value, dict):
-            val = slot_value.get("value")
-            if val and isinstance(val, str):
-                parts.append(val.strip())
-        if slot.get("resolutions"):
-            try:
-                per_auth = slot["resolutions"].get("resolutionsPerAuthority", [])
-                for authority in per_auth:
-                    for item in authority.get("values", []):
-                        value = item.get("value", {})
-                        name = value.get("name")
-                        if name and isinstance(name, str):
-                            parts.append(name.strip())
-            except (KeyError, IndexError, TypeError):
-                pass
-    seen: set[str] = set()
-    for p in parts:
-        if p and p not in seen:
-            seen.add(p)
-            return p
-    return ""
+        _walk_slot_for_speech(slot, parts)
+    return parts
+
+
+def extract_user_utterance(intent: dict, payload: dict | None) -> str:
+    """Best single guess of spoken/typed user text."""
+    parts = collect_speech_candidates(intent, payload)
+    if not parts:
+        return ""
+    return max(parts, key=len)
 
 
 def user_utterance_blob(intent: dict, payload: dict | None, locale: AlexaLocale) -> str:

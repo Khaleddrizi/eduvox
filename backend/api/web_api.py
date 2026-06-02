@@ -533,7 +533,7 @@ def _stars_adventure_specs() -> list[dict]:
                 1,
                 "question",
                 stage_title="",
-                accepted=["كلب", "الكلب"],
+                accepted=["كلب", "الكلب", "كليب", "كالب"],
                 counts_star=True,
                 success_feedback="ممتاز! حصلت على نجمة.",
             ),
@@ -564,7 +564,7 @@ def _stars_adventure_specs() -> list[dict]:
             "chunk_text": adventure_chunk(
                 3,
                 "question",
-                accepted=["موزة", "الموزة", "موز"],
+                accepted=["موزة", "الموزة", "موز", "موزه"],
                 counts_star=True,
                 success_feedback="أحسنت! لقد اكتشفت الدخيل. نجمة.",
             ),
@@ -579,7 +579,7 @@ def _stars_adventure_specs() -> list[dict]:
             "chunk_text": adventure_chunk(
                 4,
                 "question",
-                accepted=["أحمر", "الاحمر", "احمر", "حمراء"],
+                accepted=["أحمر", "الاحمر", "احمر", "حمر", "حمراء", "الأحمر"],
                 counts_star=True,
                 success_feedback="أحسنت! نجمة.",
             ),

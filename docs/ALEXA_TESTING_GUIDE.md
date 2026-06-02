@@ -72,7 +72,8 @@ python -m backend.scripts.run_ngrok
 | EndQuizIntent      | `انهِ الاختبار`, `أنهِ الاختبار`, `انهاء الاختبار`, `انتهى الاختبار` (لا تضف «ابدا» هنا) | -     |
 
 - Slot **code**: نوع `AMAZON.SearchQuery` (للقبض على **6 أرقام**، مثل 482916، رقماً رقماً). الرموز القديمة hex (8 محارف) ما زالت مدعومة.
-- Slot **answer**: نوع يقبل **أ** أو **ب** أو **ج** (ويمكن أيضاً A أو B أو C)
+- Slot **answer** (مغامرة النجوم): **`AMAZON.SearchQuery`** — وليس قائمة أ/ب/ج فقط
+- Slot **answer** (برنامج ADHD القديم): يمكن أ/ب/ج أو SearchQuery
 
 6. Build the skill
 

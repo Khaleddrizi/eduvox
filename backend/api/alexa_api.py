@@ -2,11 +2,12 @@
 import json
 import re
 import logging
-from flask import Flask, request, jsonify
+from flask import Flask, g, request, jsonify
 
 from backend.config import QUESTION_CACHE_PATH, WEAK_CHUNK_THRESHOLD
 from backend.core.alexa_codes import normalize_alexa_link_code
 from backend.core.alexa_i18n import (
+    collect_speech_candidates,
     detect_alexa_locale,
     extract_user_utterance,
     get_alexa_copy,
@@ -22,9 +23,12 @@ from backend.core.alexa_i18n import (
 )
 from backend.core.adventure_quiz import (
     AdventureQuizService,
+    export_adventure_session_attributes,
     infer_yes_from_intent,
     is_adventure_program,
     is_adventure_readiness_step,
+    pick_speech_for_step,
+    restore_adventure_session,
 )
 from backend.core.quiz_logic import (
     QuestionCache,
@@ -52,7 +56,14 @@ def build_alexa_response(
     }
     if reprompt and not end_session:
         response["reprompt"] = {"outputSpeech": {"type": "PlainText", "text": reprompt}}
-    return jsonify({"version": "1.0", "response": response})
+    body: dict = {"version": "1.0", "response": response}
+    sessions = getattr(g, "alexa_sessions", None)
+    session_key = getattr(g, "alexa_session_key", None)
+    if sessions and session_key:
+        attrs = export_adventure_session_attributes(sessions.get(session_key))
+        if attrs:
+            body["sessionAttributes"] = attrs
+    return jsonify(body)
 
 
 def _extract_answer(intent: dict) -> str:
@@ -225,17 +236,63 @@ def _resolve_answer_for_session(
         if yes:
             return yes
         session = sessions.get(session_key)
-        if is_adventure_readiness_step(session) and intent_name == "AMAZON.FallbackIntent":
-            utterance = user_blob or extract_user_utterance(intent, data)
-            if utterance:
-                return utterance
-        spoken = (
-            user_blob
-            or extract_user_utterance(intent, data)
-            or _extract_spoken_answer_raw(intent)
-        )
-        return spoken
+        steps = (session or {}).get("adventure_steps") or []
+        idx = int((session or {}).get("step_index", 0))
+        step = steps[idx] if session and idx < len(steps) else {}
+        candidates: list[str] = []
+        if user_blob:
+            candidates.append(user_blob)
+        candidates.extend(collect_speech_candidates(intent, data))
+        raw_slot = _extract_spoken_answer_raw(intent)
+        if raw_slot:
+            candidates.append(raw_slot)
+        if not candidates:
+            candidates.append(extract_user_utterance(intent, data))
+        seen: set[str] = set()
+        unique: list[str] = []
+        for c in candidates:
+            c = (c or "").strip()
+            if c and c not in seen:
+                seen.add(c)
+                unique.append(c)
+        if step:
+            picked = pick_speech_for_step(unique, step)
+            if picked:
+                logger.info(
+                    "Adventure speech candidates=%r picked=%r intent=%s",
+                    unique,
+                    picked,
+                    intent_name,
+                )
+                return picked
+        return unique[0] if unique else ""
     return _resolve_answer(intent, data, user_blob)
+
+
+def _try_restore_adventure(
+    session_key: str,
+    user_id: str,
+    alexa_session: dict,
+    sessions: SessionStore,
+    locale: str,
+) -> None:
+    if sessions.get(session_key):
+        return
+    questions, error_message = _get_patient_quiz_questions(user_id, locale)
+    if error_message or not is_adventure_program(questions):
+        return
+    patient_name, _ = _get_linked_patient_context(user_id)
+    linked_patient_id = _get_linked_patient_id(user_id)
+    attrs = alexa_session.get("attributes") or {}
+    if restore_adventure_session(
+        sessions,
+        session_key,
+        attrs,
+        questions,
+        patient_id=linked_patient_id,
+        patient_name=patient_name,
+    ):
+        return
 
 
 def _handle_quiz_answer_attempt(
@@ -303,9 +360,13 @@ def create_alexa_app(
             is_new = session.get("new", False)
 
             session_key = _sessions.resolve_key(session_id, user_id)
+            g.alexa_sessions = _sessions
+            g.alexa_session_key = session_key
             _sessions.clear_if_new(session_key, is_new)
             locale = detect_alexa_locale(data)
             copy = get_alexa_copy(locale)
+            if user_id and _is_user_linked(user_id):
+                _try_restore_adventure(session_key, user_id, session, _sessions, locale)
 
             if request_type == "LaunchRequest":
                 return build_alexa_response(
