@@ -121,6 +121,14 @@ export const PORTAL_PAGES_AR: PortalPagesTable = {
   "sp.library.readyKidsBtn": "إضافة البرنامج الجاهز",
   "sp.library.toastReadyKidsOk": "تمت إضافة البرنامج الجاهز ({n} أسئلة).",
   "sp.library.toastReadyKidsFail": "تعذّر إضافة البرنامج الجاهز",
+  "sp.library.starsAdventureTitle": "مغامرة النجوم (6–8 سنوات)",
+  "sp.library.starsAdventureHint":
+    "برنامج تدريبي مسرّح على Alexa: إجابات صوتية مباشرة (كلب، موزة…) ونجوم — بدون أ، ب، ج.",
+  "sp.library.starsAdventureFlow":
+    "اربط الطفل على Alexa ← ابدأ الاختبار ← قل نعم عند الجاهزية ← أجب بصوتك على كل سؤال.",
+  "sp.library.starsAdventureBtn": "إضافة مغامرة النجوم",
+  "sp.library.toastStarsAdventureOk": "تمت إضافة مغامرة النجوم ({n} خطوات).",
+  "sp.library.toastStarsAdventureFail": "تعذّر إضافة مغامرة النجوم",
 
   "sp.patientDetail.loadError": "تعذّر تحميل تفاصيل المريض",
   "sp.patientDetail.loading": "جاري تحميل تفاصيل المريض…",
@@ -338,6 +346,14 @@ export const PORTAL_PAGES_AR: PortalPagesTable = {
   "pa.library.readyKidsBtn": "إضافة البرنامج الجاهز",
   "pa.library.toastReadyKidsOk": "تمت إضافة البرنامج الجاهز ({n} أسئلة).",
   "pa.library.toastReadyKidsFail": "تعذّر إضافة البرنامج الجاهز",
+  "pa.library.starsAdventureTitle": "مغامرة النجوم (6–8 سنوات)",
+  "pa.library.starsAdventureHint":
+    "برنامج تدريبي مسرّح على Alexa: إجابات صوتية مباشرة ونجوم — للأطفال 6–8 سنوات.",
+  "pa.library.starsAdventureFlow":
+    "اربط الطفل على Alexa ← ابدأ الاختبار ← نعم ← أجب بصوتك على كل سؤال.",
+  "pa.library.starsAdventureBtn": "إضافة مغامرة النجوم",
+  "pa.library.toastStarsAdventureOk": "تمت إضافة مغامرة النجوم ({n} خطوات).",
+  "pa.library.toastStarsAdventureFail": "تعذّر إضافة مغامرة النجوم",
   "pa.childDetail.colDate": "التاريخ",
   "pa.childDetail.colScore": "النتيجة",
   "pa.childDetail.colQuestions": "الأسئلة",
@@ -510,6 +526,14 @@ export const PORTAL_PAGES_EN: PortalPagesTable = {
   "sp.library.readyKidsBtn": "Add ready kids program",
   "sp.library.toastReadyKidsOk": "Ready program added ({n} questions).",
   "sp.library.toastReadyKidsFail": "Could not add the ready program",
+  "sp.library.starsAdventureTitle": "Stars Adventure (ages 6–8)",
+  "sp.library.starsAdventureHint":
+    "Scripted Alexa program: speak answers directly (dog, banana…) and earn stars — no A, B, C.",
+  "sp.library.starsAdventureFlow":
+    "Link the child on Alexa → start the quiz → say yes when ready → answer each question by voice.",
+  "sp.library.starsAdventureBtn": "Add Stars Adventure",
+  "sp.library.toastStarsAdventureOk": "Stars Adventure added ({n} steps).",
+  "sp.library.toastStarsAdventureFail": "Could not add Stars Adventure",
 
   "sp.patientDetail.loadError": "Could not load patient details",
   "sp.patientDetail.loading": "Loading patient details…",
@@ -727,6 +751,14 @@ export const PORTAL_PAGES_EN: PortalPagesTable = {
   "pa.library.readyKidsBtn": "Add ready kids program",
   "pa.library.toastReadyKidsOk": "Ready program added ({n} questions).",
   "pa.library.toastReadyKidsFail": "Could not add the ready program",
+  "pa.library.starsAdventureTitle": "Stars Adventure (ages 6–8)",
+  "pa.library.starsAdventureHint":
+    "Scripted Alexa training for children 6–8: voice answers and stars.",
+  "pa.library.starsAdventureFlow":
+    "Link on Alexa → start the quiz → yes → answer by voice.",
+  "pa.library.starsAdventureBtn": "Add Stars Adventure",
+  "pa.library.toastStarsAdventureOk": "Stars Adventure added ({n} steps).",
+  "pa.library.toastStarsAdventureFail": "Could not add Stars Adventure",
   "pa.childDetail.colDate": "Date",
   "pa.childDetail.colScore": "Score",
   "pa.childDetail.colQuestions": "Questions",

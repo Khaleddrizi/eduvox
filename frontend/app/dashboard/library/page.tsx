@@ -106,6 +106,7 @@ function LibraryPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [readyKidsSaving, setReadyKidsSaving] = useState(false)
+  const [starsAdventureSaving, setStarsAdventureSaving] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -250,6 +251,26 @@ function LibraryPage() {
     }
   }
 
+  const handleAddStarsAdventureProgram = async () => {
+    if (libraryWriteLocked) {
+      toast.error(t("library.subscriptionFrozen"))
+      return
+    }
+    setStarsAdventureSaving(true)
+    try {
+      const created = await fetchApi<LibraryItem>("/api/parents/library/demo-stars-adventure", {
+        method: "POST",
+        body: "{}",
+      })
+      toast.success(t("library.toastStarsAdventureOk").replace("{n}", String(created.question_count ?? 0)))
+      await loadItems()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("library.toastStarsAdventureFail"))
+    } finally {
+      setStarsAdventureSaving(false)
+    }
+  }
+
   const handleAddReadyKidsProgram = async () => {
     if (libraryWriteLocked) {
       toast.error(t("library.subscriptionFrozen"))
@@ -356,6 +377,29 @@ function LibraryPage() {
         >
           <Sparkles className="h-4 w-4 mr-2" />
           {readyKidsSaving ? t("library.adding") : t("library.readyKidsBtn")}
+        </Button>
+      </div>
+
+      <div
+        id="library-stars-adventure"
+        className="mb-6 rounded-xl border-2 border-amber-300 dark:border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 px-4 py-4 space-y-3 shadow-sm"
+      >
+        <div className="min-w-0">
+          <p className="text-base font-semibold text-amber-950 dark:text-amber-100">{t("library.starsAdventureTitle")}</p>
+          <p className="text-sm text-amber-900/85 dark:text-amber-200/85 mt-1 leading-relaxed">{t("library.starsAdventureHint")}</p>
+          <p className="text-sm text-slate-700 dark:text-slate-300 mt-3 whitespace-pre-line leading-relaxed border-t border-amber-200/80 dark:border-amber-800/50 pt-3">
+            {t("library.starsAdventureFlow")}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={starsAdventureSaving || libraryWriteLocked}
+          className="w-full sm:w-auto border-amber-400 bg-white hover:bg-amber-100 font-medium text-amber-950 dark:bg-amber-900/60 dark:border-amber-500 dark:text-amber-50"
+          onClick={handleAddStarsAdventureProgram}
+        >
+          <Sparkles className="h-4 w-4 mr-2" />
+          {starsAdventureSaving ? t("library.adding") : t("library.starsAdventureBtn")}
         </Button>
       </div>
 

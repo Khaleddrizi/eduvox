@@ -500,6 +500,92 @@ _READYKIDS_ADHD_QUESTIONS: list[dict] = [
     },
 ]
 
+# Ready «مغامرة النجوم» — scripted adventure for ages 6–8 (voice answers, stars).
+_READYKIDS_STARS_ADVENTURE_BASE = "مغامرة النجوم (6-8 سنوات)"
+
+
+def _stars_adventure_specs() -> list[dict]:
+    from backend.core.adventure_quiz import adventure_chunk
+
+    return [
+        {
+            "question": (
+                "سأطرح عليك أسئلة قصيرة. إذا أجبت بشكل صحيح ستحصل على نجمة. "
+                "هل أنت مستعد؟"
+            ),
+            "options": {"A": "-", "B": "-", "C": "-"},
+            "correct": "A",
+            "chunk_text": adventure_chunk(
+                0,
+                "readiness",
+                accepted=["نعم", "أيوه", "جاهز", "مستعد", "تمام"],
+            ),
+        },
+        {
+            "question": (
+                "المرحلة الأولى: الانتباه السمعي. "
+                "استمع جيداً. قلت: قطة، كلب، تفاحة. "
+                "ما اسم الحيوان الذي ينبح؟"
+            ),
+            "options": {"A": "قطة", "B": "كلب", "C": "تفاحة"},
+            "correct": "B",
+            "chunk_text": adventure_chunk(
+                1,
+                "question",
+                stage_title="",
+                accepted=["كلب", "الكلب"],
+                counts_star=True,
+                success_feedback="ممتاز! حصلت على نجمة.",
+            ),
+        },
+        {
+            "question": (
+                "المرحلة الثانية: الذاكرة القصيرة. "
+                "تذكر هذه الأرقام: 3، 7، 2. ما الرقم الأخير؟"
+            ),
+            "options": {"A": "3", "B": "7", "C": "2"},
+            "correct": "C",
+            "chunk_text": adventure_chunk(
+                2,
+                "question",
+                accepted=["2", "اثنان", "إثنان", "ثنتان", "اثنين"],
+                counts_star=True,
+                success_feedback="رائع! ذاكرتك قوية. نجمة.",
+            ),
+        },
+        {
+            "question": (
+                "المرحلة الثالثة: اكتشاف الخطأ. "
+                "أي كلمة لا تنتمي إلى المجموعة؟ "
+                "سيارة، حافلة، دراجة، موزة."
+            ),
+            "options": {"A": "سيارة", "B": "حافلة", "C": "موزة"},
+            "correct": "C",
+            "chunk_text": adventure_chunk(
+                3,
+                "question",
+                accepted=["موزة", "الموزة", "موز"],
+                counts_star=True,
+                success_feedback="أحسنت! لقد اكتشفت الدخيل. نجمة.",
+            ),
+        },
+        {
+            "question": (
+                "المرحلة الرابعة: التركيز. "
+                "تخيل إشارة المرور. ما لون الضوء الذي يعني توقف؟"
+            ),
+            "options": {"A": "أخضر", "B": "أصفر", "C": "أحمر"},
+            "correct": "C",
+            "chunk_text": adventure_chunk(
+                4,
+                "question",
+                accepted=["أحمر", "الاحمر", "احمر", "حمراء"],
+                counts_star=True,
+                success_feedback="أحسنت! نجمة.",
+            ),
+        },
+    ]
+
 
 _READYKIDS_ADHD_PROGRAM_BASE_EN = "Ready ADHD program for kids (English)"
 _READYKIDS_ADHD_QUESTIONS_EN: list[dict] = [
@@ -650,6 +736,13 @@ def _create_ready_kids_adhd_quiz_program_en(db, specialist_id: int) -> TrainingP
     """Ready English MCQs for the English Alexa skill."""
     return _create_ready_kids_program_from_specs(
         db, specialist_id, _READYKIDS_ADHD_PROGRAM_BASE_EN, _READYKIDS_ADHD_QUESTIONS_EN
+    )
+
+
+def _create_ready_kids_stars_adventure_program(db, specialist_id: int) -> TrainingProgramModel:
+    """Ready scripted «مغامرة النجوم» for Arabic Alexa (ages 6–8)."""
+    return _create_ready_kids_program_from_specs(
+        db, specialist_id, _READYKIDS_STARS_ADVENTURE_BASE, _stars_adventure_specs()
     )
 
 
@@ -1877,6 +1970,23 @@ def create_web_api() -> Flask:
             t_repo = TrainingProgramRepository(db)
             return jsonify(t_repo._to_dict(item)), 201
 
+    @app.route("/api/specialists/library/demo-stars-adventure", methods=["POST"])
+    def create_specialist_library_demo_stars_adventure():
+        sid = _get_specialist_id()
+        if not sid:
+            return _auth_required()
+        with get_db() as db:
+            spec_row = SpecialistRepository(db).get_by_id(sid)
+            if not spec_row:
+                return jsonify({"error": "specialist not found"}), 404
+            sub = _specialist_subscription_dict(spec_row)
+            if sub.get("library_frozen"):
+                return _subscription_error_response(sub, "subscription_library_frozen")
+            item = _create_ready_kids_stars_adventure_program(db, sid)
+            db.commit()
+            t_repo = TrainingProgramRepository(db)
+            return jsonify(t_repo._to_dict(item)), 201
+
     @app.route("/api/specialists/library/<int:item_id>/process", methods=["POST"])
     def process_specialist_library_item(item_id: int):
         sid = _get_specialist_id()
@@ -2301,6 +2411,28 @@ def create_web_api() -> Flask:
             if sub.get("library_frozen"):
                 return _subscription_error_response(sub, "subscription_library_frozen")
             item = _create_ready_kids_adhd_quiz_program_en(db, sid)
+            db.commit()
+            t_repo = TrainingProgramRepository(db)
+            return jsonify(t_repo._to_dict(item)), 201
+
+    @app.route("/api/parents/library/demo-stars-adventure", methods=["POST"])
+    def create_parent_library_demo_stars_adventure():
+        pid = _get_parent_id()
+        if not pid:
+            return _auth_required()
+        with get_db() as db:
+            parent = ParentRepository(db).get_by_id(pid)
+            if not parent:
+                return jsonify({"error": "parent not found"}), 404
+            sid = _parent_standalone_library_sid(parent)
+            if not sid:
+                return jsonify({"error": "Library is only available for family (standalone) parent accounts."}), 403
+            if not SpecialistRepository(db).get_by_id(sid):
+                return jsonify({"error": "specialist scope not found"}), 404
+            sub = _parent_subscription_dict(parent)
+            if sub.get("library_frozen"):
+                return _subscription_error_response(sub, "subscription_library_frozen")
+            item = _create_ready_kids_stars_adventure_program(db, sid)
             db.commit()
             t_repo = TrainingProgramRepository(db)
             return jsonify(t_repo._to_dict(item)), 201

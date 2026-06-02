@@ -15,6 +15,7 @@ class AlexaCopy:
     reprompt_link: str
     reprompt_quiz: str
     reprompt_answer: str
+    reprompt_answer_free: str
     welcome: str
     link_success: str
     help_linked: str
@@ -37,6 +38,7 @@ _AR = AlexaCopy(
     reprompt_link="قل: اربط، ثم الرمز من ستة أرقام كما في اللوحة.",
     reprompt_quiz="قل: ابدأ الاختبار.",
     reprompt_answer="ما إجابتك؟ قل: أ، أو ب، أو ج.",
+    reprompt_answer_free="أعد قول إجابتك بوضوح.",
     welcome=(
         "مرحباً بك في أثيريا، برنامجك التدريبي للأطفال. "
         "لتبدأ، قل «اربط» ثم رمز الطفل من ستة أرقام. "
@@ -89,6 +91,7 @@ _EN = AlexaCopy(
     reprompt_link="Say: link, then the six-digit code from the dashboard.",
     reprompt_quiz="Say: start the quiz.",
     reprompt_answer="What's your answer? Say A, B, or C.",
+    reprompt_answer_free="Say your answer again clearly.",
     welcome=(
         "Welcome to Atheeria, the training platform for children. "
         "Please enter the child's code: say link, then the six-digit code. "
