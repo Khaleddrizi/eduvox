@@ -178,20 +178,50 @@ def quiz_start_intro(copy: AlexaCopy, locale: AlexaLocale, patient_name: str | N
 
 
 def extract_user_utterance(intent: dict, payload: dict | None) -> str:
-    """Spoken/typed user text only — avoids false matches from intent JSON."""
+    """Spoken/typed user text from Alexa request (not full intent JSON)."""
+    parts: list[str] = []
     if payload:
         req = payload.get("request") or {}
-        for key in ("input", "query", "utterance"):
+        for key in (
+            "input",
+            "query",
+            "utterance",
+            "inputTranscript",
+            "transcript",
+            "rawInput",
+        ):
             val = req.get(key)
             if val and isinstance(val, str):
-                return val.strip()
+                parts.append(val.strip())
     slots = intent.get("slots", {}) or {}
     for slot in slots.values():
         if not isinstance(slot, dict):
             continue
-        val = slot.get("value")
-        if val and isinstance(val, str):
-            return val.strip()
+        for key in ("value",):
+            val = slot.get(key)
+            if val and isinstance(val, str):
+                parts.append(val.strip())
+        slot_value = slot.get("slotValue")
+        if isinstance(slot_value, dict):
+            val = slot_value.get("value")
+            if val and isinstance(val, str):
+                parts.append(val.strip())
+        if slot.get("resolutions"):
+            try:
+                per_auth = slot["resolutions"].get("resolutionsPerAuthority", [])
+                for authority in per_auth:
+                    for item in authority.get("values", []):
+                        value = item.get("value", {})
+                        name = value.get("name")
+                        if name and isinstance(name, str):
+                            parts.append(name.strip())
+            except (KeyError, IndexError, TypeError):
+                pass
+    seen: set[str] = set()
+    for p in parts:
+        if p and p not in seen:
+            seen.add(p)
+            return p
     return ""
 
 

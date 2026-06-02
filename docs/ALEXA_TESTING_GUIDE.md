@@ -91,6 +91,17 @@ python -m backend.scripts.run_ngrok
 
 ---
 
+### تفعيل «نعم» في مهارة Alexa
+
+في **Developer Console** → Build → **Intent library** (أو Interfaces) → فعّل الـ built-in intents:
+
+- `AMAZON.YesIntent`
+- `AMAZON.ConfirmIntent` (اختياري)
+
+بدونها، عند «هل أنت مستعد؟» قد لا يصل نص «نعم» للخادم. يمكن أيضاً قول: **جاهز** أو **مستعد**.
+
+---
+
 ### 6ب. برنامج «مغامرة النجوم» (6–8 سنوات)
 
 1. من **المكتبة** → **إضافة مغامرة النجوم** → عيّن البرنامج للطفل.

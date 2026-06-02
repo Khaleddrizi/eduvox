@@ -20,7 +20,12 @@ from backend.core.alexa_i18n import (
     wants_start_quiz,
     wants_training_program,
 )
-from backend.core.adventure_quiz import AdventureQuizService, is_adventure_program
+from backend.core.adventure_quiz import (
+    AdventureQuizService,
+    infer_yes_from_intent,
+    is_adventure_program,
+    is_adventure_readiness_step,
+)
 from backend.core.quiz_logic import (
     QuestionCache,
     SessionStore,
@@ -190,6 +195,23 @@ def _resolve_answer(intent: dict, data: dict, user_blob: str) -> str:
     return extract_mcq_from_utterance(utterance)
 
 
+def _extract_spoken_answer_raw(intent: dict) -> str:
+    """Slot text as spoken (not reduced to A/B/C)."""
+    slots = intent.get("slots", {}) or {}
+    ans_slot = slots.get("answer") or {}
+    val = (ans_slot.get("value") or "").strip()
+    if not val and ans_slot.get("resolutions"):
+        try:
+            per_auth = ans_slot["resolutions"].get("resolutionsPerAuthority", [])
+            if per_auth and per_auth[0].get("values"):
+                val = per_auth[0]["values"][0].get("value", {}).get("name", "")
+        except (KeyError, IndexError, TypeError):
+            pass
+    if val:
+        return val.strip()
+    return extract_user_utterance(intent, None)
+
+
 def _resolve_answer_for_session(
     intent: dict,
     data: dict,
@@ -198,7 +220,21 @@ def _resolve_answer_for_session(
     session_key: str,
 ) -> str:
     if _session_is_adventure(sessions, session_key):
-        return user_blob or extract_user_utterance(intent, data)
+        intent_name = intent.get("name", "")
+        yes = infer_yes_from_intent(intent_name)
+        if yes:
+            return yes
+        session = sessions.get(session_key)
+        if is_adventure_readiness_step(session) and intent_name == "AMAZON.FallbackIntent":
+            utterance = user_blob or extract_user_utterance(intent, data)
+            if utterance:
+                return utterance
+        spoken = (
+            user_blob
+            or extract_user_utterance(intent, data)
+            or _extract_spoken_answer_raw(intent)
+        )
+        return spoken
     return _resolve_answer(intent, data, user_blob)
 
 
@@ -287,14 +323,35 @@ def create_alexa_app(
                 intent_name = resolve_effective_intent(
                     intent_name, user_blob or utterance_blob, has_active_quiz, locale
                 )
+                raw_intent_name = req.get("intent", {}).get("name", "")
                 logger.info(
-                    "Alexa locale=%s intent=%s effective=%s blob=%r active_quiz=%s",
+                    "Alexa locale=%s intent=%s effective=%s user=%r active_quiz=%s adventure=%s",
                     locale,
-                    req.get("intent", {}).get("name"),
+                    raw_intent_name,
                     intent_name,
-                    utterance_blob[:80],
+                    user_blob[:80],
                     has_active_quiz,
+                    _session_is_adventure(_sessions, session_key),
                 )
+
+                yes_text = infer_yes_from_intent(intent_name) or infer_yes_from_intent(raw_intent_name)
+                if (
+                    has_active_quiz
+                    and _session_is_adventure(_sessions, session_key)
+                    and yes_text
+                    and is_adventure_readiness_step(_sessions.get(session_key))
+                ):
+                    return _handle_quiz_answer_attempt(
+                        session_key,
+                        user_id,
+                        intent,
+                        data,
+                        yes_text,
+                        _quiz,
+                        _adventure,
+                        _sessions,
+                        copy,
+                    )
 
                 if intent_name == "AMAZON.HelpIntent":
                     if has_active_quiz:

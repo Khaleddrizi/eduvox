@@ -25,8 +25,19 @@ _READY_YES = frozenset(
         "يلا",
         "يلّا",
         "تمام",
+        "اه",
+        "آه",
+        "اهه",
+        "اوكي",
+        "أوكي",
+        "اجل",
+        "أجل",
+        "طبعا",
+        "طبعاً",
         "ok",
+        "okay",
         "yes",
+        "yeah",
     )
 )
 
@@ -114,7 +125,31 @@ def _matches_readiness(blob: str) -> bool:
         return False
     if n in _READY_YES:
         return True
-    return any(token in n for token in _READY_YES if len(token) >= 3)
+    if re.search(r"(^|[\s،,.؟!])(نعم|ايوه|اجل|جاهز|مستعد|اه|تمام|اوكي)([\s،,.؟!]|$)", n):
+        return True
+    if re.match(r"^ن+ع?م+\.?$", n):
+        return True
+    return any(token in n for token in _READY_YES if len(token) >= 2)
+
+
+def is_adventure_readiness_step(session: dict | None) -> bool:
+    if not session or session.get("mode") != "adventure":
+        return False
+    steps = session.get("adventure_steps") or []
+    idx = int(session.get("step_index", 0))
+    if idx >= len(steps):
+        return False
+    return (steps[idx].get("_meta") or {}).get("t") == "readiness"
+
+
+def infer_yes_from_intent(intent_name: str) -> str | None:
+    if intent_name in (
+        "AMAZON.YesIntent",
+        "AMAZON.ConfirmIntent",
+        "AMAZON.AffirmativeIntent",
+    ):
+        return "نعم"
+    return None
 
 
 def match_adventure_answer(user_text: str, step: dict) -> bool:
