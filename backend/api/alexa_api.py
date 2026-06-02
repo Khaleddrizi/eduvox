@@ -10,6 +10,7 @@ from backend.core.alexa_i18n import (
     detect_alexa_locale,
     get_alexa_copy,
     link_success_speech,
+    quiz_start_intro,
     patient_quiz_errors,
     request_text_blob,
     resolve_effective_intent,
@@ -141,6 +142,7 @@ def _handle_start_quiz(
             reprompt=copy.reprompt_quiz if _is_user_linked(user_id) else copy.reprompt_link,
         )
     linked_patient_id = _get_linked_patient_id(user_id)
+    patient_name, _ = _get_linked_patient_context(user_id)
     text = quiz.start_quiz(session_key, questions=questions, locale=locale)
     if not text:
         return build_alexa_response(copy.quiz_no_questions, reprompt=copy.reprompt_quiz)
@@ -148,8 +150,11 @@ def _handle_start_quiz(
         s = sessions.get(session_key)
         if s is not None:
             s["patient_id"] = linked_patient_id
+            if patient_name:
+                s["patient_name"] = patient_name
+    intro = quiz_start_intro(copy, locale, patient_name)
     return build_alexa_response(
-        copy.quiz_intro + text,
+        intro + text,
         end_session=False,
         reprompt=copy.reprompt_answer,
     )

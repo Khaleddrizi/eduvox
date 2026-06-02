@@ -13,8 +13,8 @@ logger = logging.getLogger("AlexaQuiz.QuizGenerator")
 
 
 # ========== Question Generation (Groq) ==========
-ALEXA_INTROS_FIRST_AR = ["هذا سؤالك. ", "السؤال: ", "لنبدأ. "]
-ALEXA_INTROS_NEXT_AR = ["السؤال التالي. ", "إليك السؤال التالي. "]
+ALEXA_INTROS_FIRST_AR = ["لنبدأ. ", "أول سؤال. ", "استمع جيداً. "]
+ALEXA_INTROS_NEXT_AR = ["السؤال التالي. ", "سؤال جديد. "]
 ALEXA_INTROS_FIRST_EN = ["Here is your question. ", "Question: ", "Let's begin. "]
 ALEXA_INTROS_NEXT_EN = ["Next question. ", "Here's the next one. "]
 
