@@ -228,10 +228,15 @@ def collect_speech_candidates(intent: dict, payload: dict | None) -> list[str]:
             "inputTranscript",
             "transcript",
             "rawInput",
+            "phrase",
         ):
             val = req.get(key)
             if val and isinstance(val, str):
                 _add_speech_part(parts, val)
+        intent_in_req = req.get("intent") or {}
+        if isinstance(intent_in_req, dict):
+            for slot in (intent_in_req.get("slots") or {}).values():
+                _walk_slot_for_speech(slot, parts)
     slots = intent.get("slots", {}) or {}
     for slot in slots.values():
         _walk_slot_for_speech(slot, parts)

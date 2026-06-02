@@ -95,6 +95,14 @@ def _normalize_arabic_text(text: str) -> str:
     return t.lower().strip()
 
 
+def canonical_arabic_answer(text: str) -> str:
+    """Compact form for matching spoken answers (simulator often sends ك.ل.ب)."""
+    t = _normalize_arabic_text(text)
+    t = re.sub(r"[\.\u00B7\u2022\u06D4\u0640]", "", t)
+    t = re.sub(r"\s+", "", t)
+    return t.strip()
+
+
 def _parse_arabic_tens_ones(fragment: str) -> int | None:
     fragment = _normalize_arabic_text(fragment)
     if not fragment:

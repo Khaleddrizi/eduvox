@@ -6,7 +6,7 @@ import logging
 import re
 from typing import Any
 
-from backend.core.alexa_codes import normalize_arabic_speech
+from backend.core.alexa_codes import canonical_arabic_answer, normalize_arabic_speech
 from backend.core.quiz_logic import normalize_mcq_letter
 
 logger = logging.getLogger("AlexaQuiz.Adventure")
@@ -110,6 +110,11 @@ def _clean_answer_phrase(blob: str) -> str:
     return n
 
 
+def _compact_answer(blob: str) -> str:
+    """ك.ل.ب or ك ل ب → كلب for matching."""
+    return canonical_arabic_answer(_clean_answer_phrase(blob))
+
+
 def _levenshtein(a: str, b: str) -> int:
     if len(a) < len(b):
         return _levenshtein(b, a)
@@ -125,23 +130,31 @@ def _levenshtein(a: str, b: str) -> int:
 
 
 def _word_match(blob: str, word: str) -> bool:
-    blob = _clean_answer_phrase(blob)
-    word = _clean_answer_phrase(word)
-    if not blob or not word:
+    blob_compact = _compact_answer(blob)
+    word_compact = _compact_answer(word)
+    blob_norm = _clean_answer_phrase(blob)
+    word_norm = _clean_answer_phrase(word)
+    if not blob_compact and not blob_norm:
         return False
-    if blob == word:
+    if not word_compact and not word_norm:
+        return False
+    if blob_compact and word_compact and blob_compact == word_compact:
         return True
-    blob_tokens = blob.split()
-    if word in blob_tokens:
+    if blob_norm == word_norm:
         return True
-    if word in blob or blob in word:
+    blob_tokens = blob_norm.split()
+    if word_norm in blob_tokens:
         return True
-    if blob.startswith("ال") and blob[2:] == word:
+    if word_norm in blob_norm or blob_norm in word_norm:
         return True
-    if word.startswith("ال") and word[2:] == blob:
-        return True
-    if len(word) >= 3 and len(blob) >= 3 and _levenshtein(blob, word) <= 1:
-        return True
+    if blob_compact and word_compact:
+        if blob_compact.startswith("ال") and blob_compact[2:] == word_compact:
+            return True
+        if word_compact.startswith("ال") and word_compact[2:] == blob_compact:
+            return True
+        if len(word_compact) >= 3 and len(blob_compact) >= 3:
+            if _levenshtein(blob_compact, word_compact) <= 1:
+                return True
     return False
 
 
@@ -397,11 +410,11 @@ class AdventureQuizService:
         step = steps[idx]
         if not match_adventure_answer(user_text, step):
             logger.info(
-                "Adventure no match step=%s heard=%r accepted=%s intent_step_type=%s",
+                "Adventure no match step=%s heard=%r compact=%r accepted=%s",
                 (step.get("_meta") or {}).get("o"),
                 user_text,
+                _compact_answer(user_text),
                 _accepted_for_step(step),
-                (step.get("_meta") or {}).get("t"),
             )
             speech, _ = self.repeat_current(session_id)
             return speech, False, None
