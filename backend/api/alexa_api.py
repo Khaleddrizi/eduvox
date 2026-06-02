@@ -23,6 +23,7 @@ from backend.core.alexa_i18n import (
 )
 from backend.core.adventure_quiz import (
     AdventureQuizService,
+    adventure_speech_hint,
     export_adventure_session_attributes,
     infer_yes_from_intent,
     is_adventure_program,
@@ -49,6 +50,7 @@ def build_alexa_response(
     text: str,
     end_session: bool = False,
     reprompt: str | None = None,
+    elicit_answer_slot: bool = False,
 ):
     response: dict = {
         "outputSpeech": {"type": "PlainText", "text": text},
@@ -56,6 +58,23 @@ def build_alexa_response(
     }
     if reprompt and not end_session:
         response["reprompt"] = {"outputSpeech": {"type": "PlainText", "text": reprompt}}
+    if elicit_answer_slot and not end_session:
+        response["directives"] = [
+            {
+                "type": "Dialog.ElicitSlot",
+                "slotToElicit": "answer",
+                "updatedIntent": {
+                    "name": "AnswerIntent",
+                    "confirmationStatus": "NONE",
+                    "slots": {
+                        "answer": {
+                            "name": "answer",
+                            "confirmationStatus": "NONE",
+                        }
+                    },
+                },
+            }
+        ]
     body: dict = {"version": "1.0", "response": response}
     sessions = getattr(g, "alexa_sessions", None)
     session_key = getattr(g, "alexa_session_key", None)
@@ -309,7 +328,27 @@ def _handle_quiz_answer_attempt(
     """During an active quiz: parse answer or ask to repeat — never restart."""
     reprompt_free = getattr(copy, "reprompt_answer_free", None) or copy.reprompt_answer
     if _session_is_adventure(sessions, session_key):
+        intent_name = intent.get("name", "")
         answer = _resolve_answer_for_session(intent, data, user_blob, sessions, session_key)
+        session = sessions.get(session_key)
+        if not (answer or "").strip():
+            hint = adventure_speech_hint(session)
+            logger.warning(
+                "Adventure empty speech intent=%s user_blob=%r session_step=%s",
+                intent_name,
+                user_blob,
+                (session or {}).get("step_index"),
+            )
+            if intent_name == "AMAZON.FallbackIntent":
+                msg = f"لم أستقبل كلمتك من أليكسا. {hint}"
+            else:
+                msg = f"لم أسمع إجابتك. {hint}"
+            return build_alexa_response(
+                msg,
+                end_session=False,
+                reprompt=hint,
+                elicit_answer_slot=True,
+            )
         text, end, snapshot = adventure.answer(session_key, answer)
         if snapshot:
             _save_session_to_db(user_id, snapshot)

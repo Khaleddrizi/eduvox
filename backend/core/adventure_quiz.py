@@ -237,6 +237,24 @@ def match_adventure_answer(user_text: str, step: dict) -> bool:
     return False
 
 
+def adventure_speech_hint(session: dict | None) -> str:
+    """Short reprompt when Amazon sends no slot text (FallbackIntent)."""
+    if not session:
+        return "قل إجابتك بكلمة واحدة."
+    steps = session.get("adventure_steps") or []
+    idx = int(session.get("step_index", 0))
+    if idx >= len(steps):
+        return "قل إجابتك بكلمة واحدة."
+    step = steps[idx]
+    meta = step.get("_meta") or {}
+    if meta.get("t") == "readiness":
+        return "قل: نعم، أو جاهز."
+    accepted = _accepted_for_step(step)
+    if accepted:
+        return f"قل كلمة واحدة، مثل: {accepted[0]}."
+    return "قل إجابتك بكلمة واحدة."
+
+
 def pick_speech_for_step(candidates: list[str], step: dict) -> str:
     """Prefer a candidate that matches; else longest non-empty string."""
     for c in candidates:
