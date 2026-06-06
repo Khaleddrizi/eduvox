@@ -579,91 +579,6 @@ def _stars_adventure_specs() -> list[dict]:
     ]
 
 
-_READYKIDS_ADHD_PROGRAM_BASE_EN = "Ready ADHD program for kids (English)"
-_READYKIDS_ADHD_QUESTIONS_EN: list[dict] = [
-    {
-        "question": "When homework feels long, what often helps?",
-        "options": {
-            "A": "A) Take a short break, then start with a small part",
-            "B": "B) Never start at all",
-            "C": "C) Throw the paper away",
-        },
-        "correct": "A",
-        "chunk_text": "Study habits",
-    },
-    {
-        "question": "Many children have extra energy. A little movement while thinking may:",
-        "options": {
-            "A": "A) Help some children focus",
-            "B": "B) Make homework disappear",
-            "C": "C) Replace sleep forever",
-        },
-        "correct": "A",
-        "chunk_text": "Energy and focus",
-    },
-    {
-        "question": "Using a simple list or colors for tasks may:",
-        "options": {
-            "A": "A) Make steps easier to remember",
-            "B": "B) Delete all your tasks",
-            "C": "C) Stop school",
-        },
-        "correct": "A",
-        "chunk_text": "Organization",
-    },
-    {
-        "question": "If you forget what the teacher said, a good step is:",
-        "options": {
-            "A": "A) Politely ask for the instructions again",
-            "B": "B) Give up for the whole year",
-            "C": "C) Pretend you understand and never ask",
-        },
-        "correct": "A",
-        "chunk_text": "Teacher communication",
-    },
-    {
-        "question": "Noise in the room can distract you. What may help?",
-        "options": {
-            "A": "A) A quiet spot, headphones, or a calm corner",
-            "B": "B) Very loud music all the time",
-            "C": "C) Never go to school",
-        },
-        "correct": "A",
-        "chunk_text": "Environment",
-    },
-    {
-        "question": "Big projects get easier when you:",
-        "options": {
-            "A": "A) Break them into small steps",
-            "B": "B) Try to finish everything in one minute",
-            "C": "C) Hide them and hope they vanish",
-        },
-        "correct": "A",
-        "chunk_text": "Planning",
-    },
-    {
-        "question": "A timer helps because it:",
-        "options": {
-            "A": "A) Shows how long to focus before a break",
-            "B": "B) Eats your pencils",
-            "C": "C) Replaces the teacher",
-        },
-        "correct": "A",
-        "chunk_text": "Time management",
-    },
-    {
-        "question": "Telling yourself: I'll try one problem first, is:",
-        "options": {
-            "A": "A) A brave way to start with a small step",
-            "B": "B) Not allowed for anyone",
-            "C": "C) Only for adults over one hundred",
-        },
-        "correct": "A",
-        "chunk_text": "Growth mindset",
-    },
-]
-
-
 def _merge_questions_into_disk_cache(program_id: int, generated: list[dict]) -> None:
     from backend.core.quiz_logic import QuestionCache
 
@@ -721,13 +636,6 @@ def _create_ready_kids_adhd_quiz_program(db, specialist_id: int) -> TrainingProg
     """Insert a ready training program: fixed Arabic MCQs for children with ADHD (duplicates allowed)."""
     return _create_ready_kids_program_from_specs(
         db, specialist_id, _READYKIDS_ADHD_PROGRAM_BASE, _READYKIDS_ADHD_QUESTIONS
-    )
-
-
-def _create_ready_kids_adhd_quiz_program_en(db, specialist_id: int) -> TrainingProgramModel:
-    """Ready English MCQs for the English Alexa skill."""
-    return _create_ready_kids_program_from_specs(
-        db, specialist_id, _READYKIDS_ADHD_PROGRAM_BASE_EN, _READYKIDS_ADHD_QUESTIONS_EN
     )
 
 
@@ -1945,23 +1853,6 @@ def create_web_api() -> Flask:
             t_repo = TrainingProgramRepository(db)
             return jsonify(t_repo._to_dict(item)), 201
 
-    @app.route("/api/specialists/library/demo-adhd-en", methods=["POST"])
-    def create_specialist_library_demo_adhd_en():
-        sid = _get_specialist_id()
-        if not sid:
-            return _auth_required()
-        with get_db() as db:
-            spec_row = SpecialistRepository(db).get_by_id(sid)
-            if not spec_row:
-                return jsonify({"error": "specialist not found"}), 404
-            sub = _specialist_subscription_dict(spec_row)
-            if sub.get("library_frozen"):
-                return _subscription_error_response(sub, "subscription_library_frozen")
-            item = _create_ready_kids_adhd_quiz_program_en(db, sid)
-            db.commit()
-            t_repo = TrainingProgramRepository(db)
-            return jsonify(t_repo._to_dict(item)), 201
-
     @app.route("/api/specialists/library/demo-stars-adventure", methods=["POST"])
     def create_specialist_library_demo_stars_adventure():
         sid = _get_specialist_id()
@@ -2381,28 +2272,6 @@ def create_web_api() -> Flask:
             if sub.get("library_frozen"):
                 return _subscription_error_response(sub, "subscription_library_frozen")
             item = _create_ready_kids_adhd_quiz_program(db, sid)
-            db.commit()
-            t_repo = TrainingProgramRepository(db)
-            return jsonify(t_repo._to_dict(item)), 201
-
-    @app.route("/api/parents/library/demo-adhd-en", methods=["POST"])
-    def create_parent_library_demo_adhd_en():
-        pid = _get_parent_id()
-        if not pid:
-            return _auth_required()
-        with get_db() as db:
-            parent = ParentRepository(db).get_by_id(pid)
-            if not parent:
-                return jsonify({"error": "parent not found"}), 404
-            sid = _parent_standalone_library_sid(parent)
-            if not sid:
-                return jsonify({"error": "Library is only available for family (standalone) parent accounts."}), 403
-            if not SpecialistRepository(db).get_by_id(sid):
-                return jsonify({"error": "specialist scope not found"}), 404
-            sub = _parent_subscription_dict(parent)
-            if sub.get("library_frozen"):
-                return _subscription_error_response(sub, "subscription_library_frozen")
-            item = _create_ready_kids_adhd_quiz_program_en(db, sid)
             db.commit()
             t_repo = TrainingProgramRepository(db)
             return jsonify(t_repo._to_dict(item)), 201
