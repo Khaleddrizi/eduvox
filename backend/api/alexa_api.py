@@ -46,6 +46,69 @@ from backend.database.models import QuestionModel, PatientModel
 logger = logging.getLogger("AlexaQuiz")
 
 
+def _supported_interfaces(data: dict | None) -> dict:
+    if not data:
+        return {}
+    device = (data.get("context") or {}).get("System", {}).get("device") or {}
+    return device.get("supportedInterfaces") or {}
+
+
+def _multimodal_directives(data: dict | None, text: str) -> list[dict]:
+    """Echo Show / Alexa app require a display payload when APL/Display is enabled on the skill."""
+    interfaces = _supported_interfaces(data)
+    if not interfaces:
+        return []
+    speech = (text or "").strip()[:8000]
+    if not speech:
+        return []
+
+    if "Alexa.Presentation.APL" in interfaces:
+        return [
+            {
+                "type": "Alexa.Presentation.APL.RenderDocument",
+                "token": "atheeriaScreen",
+                "document": {
+                    "type": "APL",
+                    "version": "1.8",
+                    "mainTemplate": {
+                        "parameters": ["payload"],
+                        "items": [
+                            {
+                                "type": "Text",
+                                "text": "${payload.messageText}",
+                                "width": "100%",
+                                "height": "100%",
+                                "paddingLeft": "24dp",
+                                "paddingRight": "24dp",
+                            }
+                        ],
+                    },
+                },
+                "datasources": {"payload": {"messageText": speech}},
+            }
+        ]
+
+    if "Display" in interfaces or "Alexa.Display.Window" in interfaces:
+        return [
+            {
+                "type": "Display.RenderTemplate",
+                "template": {
+                    "type": "BodyTemplate1",
+                    "token": "atheeriaScreen",
+                    "backButton": "HIDDEN",
+                    "title": "Atheeria",
+                    "textContent": {
+                        "primaryContent": {
+                            "type": "PlainText",
+                            "text": speech,
+                        }
+                    },
+                },
+            }
+        ]
+    return []
+
+
 def build_alexa_response(
     text: str,
     end_session: bool = False,
@@ -75,6 +138,10 @@ def build_alexa_response(
                 },
             }
         ]
+    request_data = getattr(g, "alexa_request_data", None)
+    display_directives = _multimodal_directives(request_data, text)
+    if display_directives:
+        response["directives"] = (response.get("directives") or []) + display_directives
     body: dict = {"version": "1.0", "response": response}
     sessions = getattr(g, "alexa_sessions", None)
     session_key = getattr(g, "alexa_session_key", None)
@@ -424,15 +491,17 @@ def create_alexa_app(
             session_key = _sessions.resolve_key(session_id, user_id)
             g.alexa_sessions = _sessions
             g.alexa_session_key = session_key
+            g.alexa_request_data = data
             _sessions.clear_if_new(session_key, is_new)
             locale = detect_alexa_locale(data)
             copy = get_alexa_copy(locale)
             logger.info(
-                "Alexa request_type=%s locale=%s session_new=%s user=%s",
+                "Alexa request_type=%s locale=%s session_new=%s user=%s interfaces=%s",
                 request_type,
                 locale,
                 is_new,
                 (user_id or "")[:24],
+                list(_supported_interfaces(data).keys()),
             )
 
             if request_type == "SessionEndedRequest":
