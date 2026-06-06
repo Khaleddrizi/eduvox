@@ -81,8 +81,31 @@ def build_alexa_response(
     if sessions and session_key:
         attrs = export_adventure_session_attributes(sessions.get(session_key))
         if attrs:
-            body["sessionAttributes"] = attrs
+            # Alexa requires sessionAttributes values to be strings.
+            body["sessionAttributes"] = {
+                str(k): v if isinstance(v, str) else json.dumps(v, ensure_ascii=False)
+                for k, v in attrs.items()
+            }
     return jsonify(body)
+
+
+def build_alexa_session_end_response():
+    """SessionEndedRequest must not include speech, reprompt, or directives."""
+    return jsonify({"version": "1.0"})
+
+
+def build_alexa_can_fulfill_response():
+    return jsonify(
+        {
+            "version": "1.0",
+            "response": {
+                "canFulfillIntent": {
+                    "canFulfill": "YES",
+                    "slots": {},
+                }
+            },
+        }
+    )
 
 
 def _extract_answer(intent: dict) -> str:
@@ -404,6 +427,20 @@ def create_alexa_app(
             _sessions.clear_if_new(session_key, is_new)
             locale = detect_alexa_locale(data)
             copy = get_alexa_copy(locale)
+            logger.info(
+                "Alexa request_type=%s locale=%s session_new=%s user=%s",
+                request_type,
+                locale,
+                is_new,
+                (user_id or "")[:24],
+            )
+
+            if request_type == "SessionEndedRequest":
+                return build_alexa_session_end_response()
+
+            if request_type == "CanFulfillIntentRequest":
+                return build_alexa_can_fulfill_response()
+
             if user_id and _is_user_linked(user_id):
                 _try_restore_adventure(session_key, user_id, session, _sessions, locale)
 
