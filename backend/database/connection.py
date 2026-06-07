@@ -36,11 +36,7 @@ def get_database_url() -> str:
 engine = create_engine(get_database_url(), echo=False, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
-
-def init_db() -> None:
-    Base.metadata.create_all(bind=engine)
-    with engine.connect() as conn:
-        for stmt in [
+_MIGRATION_STMTS = [
             "ALTER TABLE specialists ADD COLUMN IF NOT EXISTS phone VARCHAR(30)",
             "ALTER TABLE specialists ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
             "ALTER TABLE parents ADD COLUMN IF NOT EXISTS phone VARCHAR(30)",
@@ -75,7 +71,37 @@ def init_db() -> None:
             "ALTER TABLE parents ADD COLUMN IF NOT EXISTS subscription_grace_days INTEGER",
             "ALTER TABLE parents ADD COLUMN IF NOT EXISTS subscription_billing_exempt BOOLEAN DEFAULT FALSE NOT NULL",
             "CREATE TABLE IF NOT EXISTS stored_files (id SERIAL PRIMARY KEY, original_name VARCHAR(255) NULL, content_type VARCHAR(120) NULL, data BYTEA NOT NULL, created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW())",
-        ]:
+]
+
+
+def _schema_migrations_applied(conn) -> bool:
+    """Fast check: skip dozens of ALTER round-trips when schema is already current."""
+    sentinel = conn.execute(
+        text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_schema = 'public' AND table_name = 'specialists' "
+            "AND column_name = 'subscription_billing_exempt' LIMIT 1"
+        )
+    ).first()
+    if not sentinel:
+        return False
+    stored_files = conn.execute(
+        text(
+            "SELECT 1 FROM information_schema.tables "
+            "WHERE table_schema = 'public' AND table_name = 'stored_files' LIMIT 1"
+        )
+    ).first()
+    return stored_files is not None
+
+
+def init_db() -> None:
+    Base.metadata.create_all(bind=engine)
+    force = os.getenv("FORCE_DB_MIGRATIONS", "").lower() in ("1", "true", "yes")
+    with engine.connect() as conn:
+        if not force and _schema_migrations_applied(conn):
+            logger.info("Database schema up to date; skipping migration ALTERs.")
+            return
+        for stmt in _MIGRATION_STMTS:
             conn.execute(text(stmt))
         conn.commit()
     logger.info("Database tables initialized.")

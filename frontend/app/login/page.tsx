@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { CheckCircle, AlertCircle } from "lucide-react"
-import { login, toAccountType, type AuthRole } from "@/lib/api"
+import { login, toAccountType, warmupBackend, type AuthRole } from "@/lib/api"
 import { PortalI18nProvider, usePortalI18n } from "@/lib/i18n/i18n-context"
 import { SiteHeader } from "@/components/site-header"
 
@@ -40,6 +40,10 @@ function LoginForm() {
   useEffect(() => {
     setFormData((prev) => (prev.role === preselectedRole ? prev : { ...prev, role: preselectedRole }))
   }, [preselectedRole])
+
+  useEffect(() => {
+    warmupBackend()
+  }, [])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.id]: e.target.value })

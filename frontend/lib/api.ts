@@ -50,9 +50,8 @@ async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit | un
 }
 
 async function fetchWithRetry(input: RequestInfo | URL, init: RequestInit, opts?: { retries?: number; timeoutMs?: number }) {
-  const retries = opts?.retries ?? 2
-  // Render Free can take longer on cold starts; avoid aborting the request too early.
-  const timeoutMs = opts?.timeoutMs ?? 60000
+  const retries = opts?.retries ?? 1
+  const timeoutMs = opts?.timeoutMs ?? 45000
   let lastErr: unknown = null
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
@@ -74,17 +73,29 @@ async function fetchWithRetry(input: RequestInfo | URL, init: RequestInit, opts?
   throw lastErr ?? new Error("Request failed")
 }
 
+/** Wake Render on cold start in the background; no UI feedback. */
+export function warmupBackend(): void {
+  if (typeof window === "undefined") return
+  void fetchWithTimeout(`${API_BASE}/api/health`, { method: "GET", credentials: "include" }, 120000).catch(
+    () => {},
+  )
+}
+
 export async function login(
   email: string,
   password: string,
   role: AuthRole
 ): Promise<AuthUser> {
-  const res = await fetchWithRetry(`${API_BASE}/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, role }),
-    credentials: "include",
-  })
+  const res = await fetchWithRetry(
+    `${API_BASE}/api/auth/login`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, role }),
+      credentials: "include",
+    },
+    { retries: 1, timeoutMs: 35000 },
+  )
   if (!res.ok) {
     const parsed = (await res.json().catch(() => ({}))) as { error?: string }
     if (parsed.error) {
