@@ -51,6 +51,7 @@ def build_alexa_response(
     end_session: bool = False,
     reprompt: str | None = None,
     elicit_answer_slot: bool = False,
+    session_attributes: dict | None = None,
 ):
     response: dict = {
         "outputSpeech": {"type": "PlainText", "text": text},
@@ -76,16 +77,20 @@ def build_alexa_response(
             }
         ]
     body: dict = {"version": "1.0", "response": response}
-    sessions = getattr(g, "alexa_sessions", None)
-    session_key = getattr(g, "alexa_session_key", None)
-    if sessions and session_key:
-        attrs = export_adventure_session_attributes(sessions.get(session_key))
-        if attrs:
-            # Alexa requires sessionAttributes values to be strings.
-            body["sessionAttributes"] = {
-                str(k): v if isinstance(v, str) else json.dumps(v, ensure_ascii=False)
-                for k, v in attrs.items()
-            }
+    if session_attributes is not None:
+        # Explicit {} clears stale adventure/quiz state when the skill reopens.
+        body["sessionAttributes"] = session_attributes
+    else:
+        sessions = getattr(g, "alexa_sessions", None)
+        session_key = getattr(g, "alexa_session_key", None)
+        if sessions and session_key:
+            attrs = export_adventure_session_attributes(sessions.get(session_key))
+            if attrs:
+                # Alexa requires sessionAttributes values to be strings.
+                body["sessionAttributes"] = {
+                    str(k): v if isinstance(v, str) else json.dumps(v, ensure_ascii=False)
+                    for k, v in attrs.items()
+                }
     return jsonify(body)
 
 
@@ -389,13 +394,16 @@ def _handle_quiz_answer_attempt(
             text,
             end_session=end,
             reprompt=None if end else reprompt_free,
+            session_attributes={} if end else None,
         )
 
     answer = _resolve_answer(intent, data, user_blob)
     if answer:
         text, end, quiz_reprompt = quiz.answer_and_next(session_key, answer)
         rp = None if end else (quiz_reprompt or copy.reprompt_answer)
-        return build_alexa_response(text, end_session=end, reprompt=rp)
+        return build_alexa_response(
+            text, end_session=end, reprompt=rp, session_attributes={} if end else None
+        )
     text, _ = quiz.repeat_current_question(session_key)
     return build_alexa_response(
         text,
@@ -450,15 +458,17 @@ def create_alexa_app(
             if request_type == "CanFulfillIntentRequest":
                 return build_alexa_can_fulfill_response()
 
-            if user_id and _is_user_linked(user_id):
-                _try_restore_adventure(session_key, user_id, session, _sessions, locale)
-
             if request_type == "LaunchRequest":
+                _sessions.pop(session_key, None)
                 return build_alexa_response(
                     copy.welcome,
                     end_session=False,
                     reprompt=copy.reprompt_link,
+                    session_attributes={},
                 )
+
+            if user_id and _is_user_linked(user_id):
+                _try_restore_adventure(session_key, user_id, session, _sessions, locale)
 
             if request_type == "IntentRequest":
                 intent = req.get("intent", {})
@@ -519,8 +529,10 @@ def create_alexa_app(
                     return build_alexa_response(copy.help_linked, reprompt=copy.reprompt_quiz)
 
                 if intent_name in ("AMAZON.StopIntent", "AMAZON.CancelIntent"):
-                    _sessions.pop(session_key)
-                    return build_alexa_response(copy.stop, end_session=True)
+                    _sessions.pop(session_key, None)
+                    return build_alexa_response(
+                        copy.stop, end_session=True, session_attributes={}
+                    )
 
                 if intent_name == "AMAZON.FallbackIntent":
                     if has_active_quiz:
@@ -624,7 +636,11 @@ def create_alexa_app(
                     result_msg = text
                     if snapshot and _is_user_linked(user_id):
                         result_msg = text + copy.quiz_end_dashboard
-                    return build_alexa_response(result_msg, end_session=end)
+                    return build_alexa_response(
+                        result_msg,
+                        end_session=end,
+                        session_attributes={} if end else None,
+                    )
 
                 if has_active_quiz:
                     return _handle_quiz_answer_attempt(
