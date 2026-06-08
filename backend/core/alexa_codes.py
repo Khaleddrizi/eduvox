@@ -35,6 +35,8 @@ _AR_ONES: dict[str, int] = {
     "ستة": 6,
     "سته": 6,
     "ست": 6,
+    "ستعة": 9,
+    "ستعه": 9,
     "سبعة": 7,
     "سبع": 7,
     "سبعه": 7,
@@ -188,6 +190,24 @@ def _parse_arabic_spoken_code(text: str) -> str:
     if by_digit:
         return by_digit
     return _parse_arabic_hundred_chunks(text)
+
+
+_SPOKEN_DIGIT_HINT = re.compile(
+    r"(واحد|واحدة|اثنان|اثنين|ثنين|ثلاثة|ثلاث|اربعة|اربعه|أربعة|خمسة|خمس|خمسه|"
+    r"ستة|سته|ست|ستعة|سبعة|سبع|سبعه|ثمانية|ثماني|تسعة|تسع|تسعه|صفر|زيرو|"
+    r"one|two|three|four|five|six|seven|eight|nine|zero|\d)",
+    re.IGNORECASE,
+)
+
+
+def looks_like_link_code_attempt(raw: str) -> bool:
+    """True when utterance likely contains a link code (spoken digits or numerals)."""
+    text = (raw or "").strip()
+    if not text:
+        return False
+    if normalize_alexa_link_code(text):
+        return True
+    return bool(_SPOKEN_DIGIT_HINT.search(text))
 
 
 def normalize_alexa_link_code(raw: str) -> str:

@@ -5,7 +5,7 @@ import logging
 from flask import Flask, g, request, jsonify
 
 from backend.config import QUESTION_CACHE_PATH, WEAK_CHUNK_THRESHOLD
-from backend.core.alexa_codes import normalize_alexa_link_code
+from backend.core.alexa_codes import looks_like_link_code_attempt, normalize_alexa_link_code
 from backend.core.alexa_i18n import (
     collect_speech_candidates,
     detect_alexa_locale,
@@ -19,6 +19,7 @@ from backend.core.alexa_i18n import (
     should_reset_link_to_welcome,
     user_utterance_blob,
     wants_link,
+    wants_skill_reopen,
     wants_start_quiz,
     wants_training_program,
 )
@@ -175,6 +176,21 @@ def _collect_code_raw_candidates(intent: dict, payload: dict | None = None) -> l
             pass
 
     if payload:
+        req = payload.get("request") or {}
+        for key in (
+            "input",
+            "query",
+            "utterance",
+            "inputTranscript",
+            "transcript",
+            "rawInput",
+            "phrase",
+        ):
+            add(req.get(key))
+        for part in collect_speech_candidates(intent, payload):
+            add(part)
+        utterance = extract_user_utterance(intent, payload)
+        add(utterance)
         try:
             blob = json.dumps(payload, ensure_ascii=False)
             for match in re.finditer(r"(?<!\d)\d{6}(?!\d)", blob):
@@ -191,6 +207,30 @@ def _extract_code(intent: dict, payload: dict | None = None) -> str:
         if normalized:
             return normalized
     return ""
+
+
+def _link_code_prompt(copy):
+    return build_alexa_response(
+        copy.link_no_code,
+        reprompt=copy.reprompt_link,
+        session_attributes={},
+    )
+
+
+def _respond_to_link_code(user_id: str, code: str, copy):
+    if not code:
+        return None
+    ok = _link_alexa_to_patient(user_id, code)
+    if ok:
+        patient_name, _ = _get_linked_patient_context(user_id)
+        return build_alexa_response(
+            link_success_speech(copy, patient_name),
+            reprompt=copy.reprompt_quiz,
+        )
+    return build_alexa_response(
+        copy.link_not_found.format(code=code),
+        reprompt=copy.reprompt_link,
+    )
 
 
 def _welcome_fresh_start(copy, *, end_session: bool = False):
@@ -509,7 +549,7 @@ def create_alexa_app(
 
                 has_active_quiz = _sessions.get(session_key) is not None
                 intent_name = resolve_effective_intent(
-                    intent_name, user_blob or utterance_blob, has_active_quiz, locale
+                    intent_name, user_blob, has_active_quiz, locale
                 )
                 raw_intent_name = req.get("intent", {}).get("name", "")
                 logger.info(
@@ -580,24 +620,22 @@ def create_alexa_app(
                             copy,
                         )
                     if not _is_user_linked(user_id):
-                        if wants_training_program(utterance_blob, locale) and not wants_link(
-                            utterance_blob, locale
-                        ):
+                        if wants_skill_reopen(user_blob, locale):
                             return _welcome_fresh_start(copy)
                         fallback_code = _extract_code(intent, data)
-                        if fallback_code:
-                            ok = _link_alexa_to_patient(user_id, fallback_code)
-                            if ok:
-                                patient_name, _ = _get_linked_patient_context(user_id)
-                                return build_alexa_response(
-                                    link_success_speech(copy, patient_name),
-                                    reprompt=copy.reprompt_quiz,
-                                )
-                            return build_alexa_response(
-                                copy.link_not_found_short.format(code=fallback_code),
-                                reprompt=copy.reprompt_link,
-                            )
-                        return _welcome_fresh_start(copy)
+                        link_resp = _respond_to_link_code(user_id, fallback_code, copy)
+                        if link_resp is not None:
+                            return link_resp
+                        if wants_link(user_blob, locale) or looks_like_link_code_attempt(
+                            user_blob
+                        ):
+                            return _link_code_prompt(copy)
+                        if wants_training_program(user_blob, locale):
+                            return _welcome_fresh_start(copy)
+                        return build_alexa_response(
+                            copy.default_unlinked,
+                            reprompt=copy.reprompt_link,
+                        )
                     if wants_start_quiz(user_blob, locale):
                         return _handle_start_quiz(
                             session_key, user_id, _quiz, _adventure, _sessions, locale, copy
@@ -617,24 +655,16 @@ def create_alexa_app(
                                 user_blob[:80],
                             )
                             return _welcome_fresh_start(copy)
-                        logger.info("Alexa link: no code parsed intent=%s", intent_name)
-                        return build_alexa_response(
-                            copy.link_no_code,
-                            reprompt=copy.reprompt_link,
-                            session_attributes={},
+                        logger.info(
+                            "Alexa link: no code parsed intent=%s heard=%r",
+                            intent_name,
+                            user_blob[:80],
                         )
+                        return _link_code_prompt(copy)
                     logger.info("Alexa link attempt code=%s locale=%s", code, locale)
-                    ok = _link_alexa_to_patient(user_id, code)
-                    if ok:
-                        patient_name, _ = _get_linked_patient_context(user_id)
-                        return build_alexa_response(
-                            link_success_speech(copy, patient_name),
-                            reprompt=copy.reprompt_quiz,
-                        )
-                    return build_alexa_response(
-                        copy.link_not_found.format(code=code),
-                        reprompt=copy.reprompt_link,
-                    )
+                    link_resp = _respond_to_link_code(user_id, code, copy)
+                    if link_resp is not None:
+                        return link_resp
 
                 if intent_name == "StartQuizIntent":
                     if has_active_quiz:

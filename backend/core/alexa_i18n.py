@@ -5,7 +5,7 @@ import json
 import re
 from dataclasses import dataclass
 
-from backend.core.alexa_codes import normalize_arabic_speech
+from backend.core.alexa_codes import looks_like_link_code_attempt, normalize_arabic_speech
 
 AlexaLocale = str  # "ar" | "en"
 
@@ -334,14 +334,12 @@ def wants_skill_reopen(blob: str, locale: AlexaLocale) -> bool:
 
 
 def should_reset_link_to_welcome(blob: str, locale: AlexaLocale) -> bool:
-    """Stale LinkPatientIntent dialog: treat as fresh open unless user is still linking."""
-    if not blob:
-        return True
+    """Reset only on explicit skill-open phrases — not on empty device transcripts."""
     if wants_skill_reopen(blob, locale) or wants_training_program(blob, locale):
         return True
-    if wants_link(blob, locale):
+    if wants_link(blob, locale) or looks_like_link_code_attempt(blob):
         return False
-    if re.search(r"(?<!\d)\d{6}(?!\d)", blob):
+    if not blob:
         return False
     return True
 
@@ -367,7 +365,9 @@ def resolve_effective_intent(
             return "StartQuizIntent"
     if wants_end_quiz(blob, locale) and has_active_quiz:
         return "EndQuizIntent"
-    if wants_link(blob, locale) and intent_name in ("AMAZON.FallbackIntent",):
+    if intent_name == "AMAZON.FallbackIntent" and (
+        wants_link(blob, locale) or looks_like_link_code_attempt(blob)
+    ):
         return "LinkPatientIntent"
     return intent_name
 
