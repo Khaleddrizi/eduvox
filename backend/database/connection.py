@@ -71,6 +71,7 @@ _MIGRATION_STMTS = [
             "ALTER TABLE parents ADD COLUMN IF NOT EXISTS subscription_grace_days INTEGER",
             "ALTER TABLE parents ADD COLUMN IF NOT EXISTS subscription_billing_exempt BOOLEAN DEFAULT FALSE NOT NULL",
             "CREATE TABLE IF NOT EXISTS stored_files (id SERIAL PRIMARY KEY, original_name VARCHAR(255) NULL, content_type VARCHAR(120) NULL, data BYTEA NOT NULL, created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW())",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS alexa_pending_fresh_open BOOLEAN DEFAULT FALSE NOT NULL",
 ]
 
 
@@ -91,7 +92,16 @@ def _schema_migrations_applied(conn) -> bool:
             "WHERE table_schema = 'public' AND table_name = 'stored_files' LIMIT 1"
         )
     ).first()
-    return stored_files is not None
+    if not stored_files:
+        return False
+    pending_fresh = conn.execute(
+        text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_schema = 'public' AND table_name = 'users' "
+            "AND column_name = 'alexa_pending_fresh_open' LIMIT 1"
+        )
+    ).first()
+    return pending_fresh is not None
 
 
 def init_db() -> None:

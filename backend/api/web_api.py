@@ -909,15 +909,30 @@ def _resolve_specialist_id_for_new_parent_child(db: Session, parent: ParentModel
     return int(first.specialist_id), None
 
 
+def _init_db_with_retry(retries: int = 4, delay_seconds: float = 2.0) -> None:
+    last_error: Exception | None = None
+    for attempt in range(1, retries + 1):
+        try:
+            init_db()
+            return
+        except Exception as exc:
+            last_error = exc
+            logger.exception(
+                "init_db() failed during Web API startup (attempt %s/%s)",
+                attempt,
+                retries,
+            )
+            if attempt < retries:
+                time.sleep(delay_seconds)
+    if last_error:
+        raise last_error
+
+
 def create_web_api() -> Flask:
     app = Flask(__name__)
     # Render runs this module directly (run.py with PORT); ensure schema patches run
     # so ORM columns (e.g. specialists/parents preferred_locale) exist before login queries.
-    try:
-        init_db()
-    except Exception:
-        logger.exception("init_db() failed during Web API startup")
-        raise
+    _init_db_with_retry()
 
     default_origins = [
         "http://localhost:3000",

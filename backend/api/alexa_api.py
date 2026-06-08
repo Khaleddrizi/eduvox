@@ -242,20 +242,38 @@ def _clear_alexa_dialog_state():
 
 
 def _finish_quiz_and_release_link(user_id: str) -> None:
-    """After a quiz ends, clear the Alexa↔patient link so the next skill open can link anew."""
+    """After a quiz ends, release the link and flag the next skill open as a fresh start."""
     if not user_id:
         return
     try:
         with get_db() as db:
             user_repo = UserRepository(db)
-            if user_repo.unlink_from_patient(user_id):
-                db.commit()
+            released = user_repo.unlink_from_patient(user_id)
+            user_repo.mark_pending_fresh_skill_open(user_id)
+            db.commit()
+            if released:
                 logger.info(
                     "Alexa: released patient link after quiz end user=%s",
                     user_id[:24],
                 )
+            else:
+                logger.info(
+                    "Alexa: marked fresh skill open after quiz end user=%s",
+                    user_id[:24],
+                )
     except Exception as e:
         logger.warning("Could not release Alexa patient link: %s", e)
+
+
+def _alexa_shows_as_linked(user_id: str) -> bool:
+    """True when the user should hear the linked-child greeting (not a post-quiz fresh start)."""
+    if not user_id or not _is_user_linked(user_id):
+        return False
+    try:
+        with get_db() as db:
+            return not UserRepository(db).has_pending_fresh_skill_open(user_id)
+    except Exception:
+        return True
 
 
 def _skill_open_response(
@@ -264,10 +282,13 @@ def _skill_open_response(
     locale: str,
     *,
     end_session: bool = False,
+    force_fresh: bool = False,
 ):
     """Clear stale state and greet — linked users get a personalized welcome."""
+    if force_fresh and user_id:
+        _finish_quiz_and_release_link(user_id)
     _clear_alexa_dialog_state()
-    linked = bool(user_id) and _is_user_linked(user_id)
+    linked = False if force_fresh else _alexa_shows_as_linked(user_id)
     patient_name = None
     if linked:
         patient_name, _ = _get_linked_patient_context(user_id)
@@ -291,7 +312,7 @@ def _handle_start_quiz(
     locale: str,
     copy,
 ):
-    if not _is_user_linked(user_id):
+    if not _alexa_shows_as_linked(user_id):
         return build_alexa_response(copy.link_need_child, reprompt=copy.reprompt_link)
     questions, error_message = _get_patient_quiz_questions(user_id, locale)
     if error_message:
@@ -563,12 +584,14 @@ def create_alexa_app(
                 )
                 if is_new and not (
                     (intent_name == "LinkPatientIntent" and link_code)
-                    or (intent_name == "StartQuizIntent" and _is_user_linked(user_id))
+                    or (intent_name == "StartQuizIntent" and _alexa_shows_as_linked(user_id))
                 ):
                     return _skill_open_response(copy, user_id, locale)
 
                 if intent_name in ("AMAZON.StartOverIntent",):
-                    return _skill_open_response(copy, user_id, locale)
+                    return _skill_open_response(
+                        copy, user_id, locale, force_fresh=True
+                    )
 
                 if (
                     intent_name == "LinkPatientIntent"
@@ -579,9 +602,11 @@ def create_alexa_app(
                         "Alexa link: early stale dialog reset heard=%r",
                         (user_blob or utterance_blob)[:80],
                     )
-                    return _skill_open_response(copy, user_id, locale)
+                    return _skill_open_response(
+                        copy, user_id, locale, force_fresh=True
+                    )
 
-                if user_id and _is_user_linked(user_id) and not _sessions.get(session_key):
+                if user_id and _alexa_shows_as_linked(user_id) and not _sessions.get(session_key):
                     _try_restore_adventure(session_key, user_id, session, _sessions, locale)
 
                 has_active_quiz = _sessions.get(session_key) is not None
@@ -629,7 +654,7 @@ def create_alexa_app(
                             copy.help_during_quiz,
                             reprompt=rp,
                         )
-                    if not _is_user_linked(user_id):
+                    if not _alexa_shows_as_linked(user_id):
                         return _skill_open_response(copy, user_id, locale)
                     if wants_start_quiz(user_blob, locale):
                         return _handle_start_quiz(
@@ -638,7 +663,10 @@ def create_alexa_app(
                     return build_alexa_response(copy.help_linked, reprompt=copy.reprompt_quiz)
 
                 if intent_name in ("AMAZON.StopIntent", "AMAZON.CancelIntent"):
+                    had_quiz = _sessions.get(session_key) is not None
                     _sessions.pop(session_key)
+                    if had_quiz:
+                        _finish_quiz_and_release_link(user_id)
                     return build_alexa_response(
                         copy.stop, end_session=True, session_attributes={}
                     )
@@ -656,9 +684,11 @@ def create_alexa_app(
                             _sessions,
                             copy,
                         )
-                    if not _is_user_linked(user_id):
+                    if not _alexa_shows_as_linked(user_id):
                         if wants_skill_reopen(user_blob, locale):
-                            return _skill_open_response(copy, user_id, locale)
+                            return _skill_open_response(
+                                copy, user_id, locale, force_fresh=True
+                            )
                         fallback_code = _extract_code(intent, data)
                         link_resp = _respond_to_link_code(user_id, fallback_code, copy)
                         if link_resp is not None:
@@ -668,7 +698,9 @@ def create_alexa_app(
                         ):
                             return _link_code_prompt(copy)
                         if wants_training_program(user_blob, locale):
-                            return _skill_open_response(copy, user_id, locale)
+                            return _skill_open_response(
+                                copy, user_id, locale, force_fresh=True
+                            )
                         return build_alexa_response(
                             copy.default_unlinked,
                             reprompt=copy.reprompt_link,
@@ -678,7 +710,9 @@ def create_alexa_app(
                             session_key, user_id, _quiz, _adventure, _sessions, locale, copy
                         )
                     if should_reset_link_to_welcome(user_blob, locale):
-                        return _skill_open_response(copy, user_id, locale)
+                        return _skill_open_response(
+                            copy, user_id, locale, force_fresh=True
+                        )
                     return _skill_open_response(copy, user_id, locale)
 
                 if intent_name == "LinkPatientIntent":
@@ -689,7 +723,9 @@ def create_alexa_app(
                                 "Alexa link: stale dialog reset to welcome heard=%r",
                                 user_blob[:80],
                             )
-                            return _skill_open_response(copy, user_id, locale)
+                            return _skill_open_response(
+                                copy, user_id, locale, force_fresh=True
+                            )
                         logger.info(
                             "Alexa link: no code parsed intent=%s heard=%r",
                             intent_name,
@@ -767,10 +803,11 @@ def create_alexa_app(
                     )
 
                 logger.info(
-                    "Alexa unhandled intent=%s user=%r linked=%s",
+                    "Alexa unhandled intent=%s user=%r linked=%s pending_fresh=%s",
                     raw_intent_name,
                     user_blob[:80],
                     _is_user_linked(user_id),
+                    not _alexa_shows_as_linked(user_id) if user_id else False,
                 )
                 return _skill_open_response(copy, user_id, locale)
 
@@ -869,6 +906,7 @@ def _link_alexa_to_patient(alexa_user_id: str, code: str) -> bool:
                 logger.info("Alexa link: patient not found for code=%s", code)
                 return False
             user_repo.link_to_patient(alexa_user_id, patient.id)
+            user_repo.clear_pending_fresh_skill_open(alexa_user_id)
             db.commit()
             logger.info(
                 "Alexa link: linked user=%s patient_id=%s code=%s",

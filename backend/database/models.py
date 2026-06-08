@@ -19,6 +19,7 @@ class UserModel(Base):
     alexa_user_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     display_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     patient_id: Mapped[Optional[int]] = mapped_column(ForeignKey("patients.id"), nullable=True, index=True)
+    alexa_pending_fresh_open: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
     last_seen_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
 

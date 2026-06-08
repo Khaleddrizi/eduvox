@@ -16,6 +16,7 @@ groq>=0.4.0
 
 # Auth
 bcrypt>=4.0.0
+itsdangerous>=2.1.0
 
 # Database (Phase 3)
 sqlalchemy>=2.0.0

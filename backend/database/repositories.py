@@ -67,6 +67,24 @@ class UserRepository:
         self._db.flush()
         return True
 
+    def mark_pending_fresh_skill_open(self, alexa_user_id: str) -> bool:
+        user = self.get_or_create(alexa_user_id)
+        user.alexa_pending_fresh_open = True
+        self._db.flush()
+        return True
+
+    def clear_pending_fresh_skill_open(self, alexa_user_id: str) -> bool:
+        user = self.get_by_alexa_id(alexa_user_id)
+        if not user:
+            return False
+        user.alexa_pending_fresh_open = False
+        self._db.flush()
+        return True
+
+    def has_pending_fresh_skill_open(self, alexa_user_id: str) -> bool:
+        user = self.get_by_alexa_id(alexa_user_id)
+        return bool(user and getattr(user, "alexa_pending_fresh_open", False))
+
 
 # ========== Specialist Repository ==========
 
