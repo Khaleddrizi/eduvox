@@ -241,6 +241,23 @@ def _clear_alexa_dialog_state():
         sessions.pop(session_key)
 
 
+def _finish_quiz_and_release_link(user_id: str) -> None:
+    """After a quiz ends, clear the Alexa↔patient link so the next skill open can link anew."""
+    if not user_id:
+        return
+    try:
+        with get_db() as db:
+            user_repo = UserRepository(db)
+            if user_repo.unlink_from_patient(user_id):
+                db.commit()
+                logger.info(
+                    "Alexa: released patient link after quiz end user=%s",
+                    user_id[:24],
+                )
+    except Exception as e:
+        logger.warning("Could not release Alexa patient link: %s", e)
+
+
 def _skill_open_response(
     copy,
     user_id: str,
@@ -463,6 +480,8 @@ def _handle_quiz_answer_attempt(
             _save_session_to_db(user_id, snapshot)
             if _is_user_linked(user_id):
                 text = text + copy.quiz_end_dashboard
+        if end:
+            _finish_quiz_and_release_link(user_id)
         return build_alexa_response(
             text,
             end_session=end,
@@ -726,6 +745,8 @@ def create_alexa_app(
                     result_msg = text
                     if snapshot and _is_user_linked(user_id):
                         result_msg = text + copy.quiz_end_dashboard
+                    if end:
+                        _finish_quiz_and_release_link(user_id)
                     return build_alexa_response(
                         result_msg,
                         end_session=end,

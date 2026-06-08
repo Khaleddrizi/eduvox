@@ -59,6 +59,14 @@ class UserRepository:
         self._db.flush()
         return True
 
+    def unlink_from_patient(self, alexa_user_id: str) -> bool:
+        user = self.get_by_alexa_id(alexa_user_id)
+        if not user or user.patient_id is None:
+            return False
+        user.patient_id = None
+        self._db.flush()
+        return True
+
 
 # ========== Specialist Repository ==========
 
