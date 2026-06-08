@@ -16,6 +16,7 @@ from backend.core.alexa_i18n import (
     patient_quiz_errors,
     request_text_blob,
     resolve_effective_intent,
+    should_reset_link_to_welcome,
     user_utterance_blob,
     wants_link,
     wants_start_quiz,
@@ -190,6 +191,20 @@ def _extract_code(intent: dict, payload: dict | None = None) -> str:
         if normalized:
             return normalized
     return ""
+
+
+def _welcome_fresh_start(copy, *, end_session: bool = False):
+    """Clear Alexa dialog/adventure attrs and show the link intro from scratch."""
+    sessions = getattr(g, "alexa_sessions", None)
+    session_key = getattr(g, "alexa_session_key", None)
+    if sessions and session_key:
+        sessions.pop(session_key, None)
+    return build_alexa_response(
+        copy.welcome,
+        end_session=end_session,
+        reprompt=copy.reprompt_link,
+        session_attributes={},
+    )
 
 
 def _handle_start_quiz(
@@ -459,22 +474,39 @@ def create_alexa_app(
                 return build_alexa_can_fulfill_response()
 
             if request_type == "LaunchRequest":
-                _sessions.pop(session_key, None)
-                return build_alexa_response(
-                    copy.welcome,
-                    end_session=False,
-                    reprompt=copy.reprompt_link,
-                    session_attributes={},
-                )
-
-            if user_id and _is_user_linked(user_id):
-                _try_restore_adventure(session_key, user_id, session, _sessions, locale)
+                return _welcome_fresh_start(copy)
 
             if request_type == "IntentRequest":
                 intent = req.get("intent", {})
                 intent_name = intent.get("name", "")
                 utterance_blob = request_text_blob(intent, data, locale)
                 user_blob = user_utterance_blob(intent, data, locale)
+                link_code = (
+                    _extract_code(intent, data) if intent_name == "LinkPatientIntent" else ""
+                )
+                if is_new and not (
+                    (intent_name == "LinkPatientIntent" and link_code)
+                    or (intent_name == "StartQuizIntent" and _is_user_linked(user_id))
+                ):
+                    return _welcome_fresh_start(copy)
+
+                if intent_name in ("AMAZON.StartOverIntent",):
+                    return _welcome_fresh_start(copy)
+
+                if (
+                    intent_name == "LinkPatientIntent"
+                    and not link_code
+                    and should_reset_link_to_welcome(user_blob or utterance_blob, locale)
+                ):
+                    logger.info(
+                        "Alexa link: early stale dialog reset heard=%r",
+                        (user_blob or utterance_blob)[:80],
+                    )
+                    return _welcome_fresh_start(copy)
+
+                if user_id and _is_user_linked(user_id) and not _sessions.get(session_key):
+                    _try_restore_adventure(session_key, user_id, session, _sessions, locale)
+
                 has_active_quiz = _sessions.get(session_key) is not None
                 intent_name = resolve_effective_intent(
                     intent_name, user_blob or utterance_blob, has_active_quiz, locale
@@ -521,7 +553,7 @@ def create_alexa_app(
                             reprompt=rp,
                         )
                     if not _is_user_linked(user_id):
-                        return build_alexa_response(copy.welcome, reprompt=copy.reprompt_link)
+                        return _welcome_fresh_start(copy)
                     if wants_start_quiz(user_blob, locale):
                         return _handle_start_quiz(
                             session_key, user_id, _quiz, _adventure, _sessions, locale, copy
@@ -551,7 +583,7 @@ def create_alexa_app(
                         if wants_training_program(utterance_blob, locale) and not wants_link(
                             utterance_blob, locale
                         ):
-                            return build_alexa_response(copy.welcome, reprompt=copy.reprompt_link)
+                            return _welcome_fresh_start(copy)
                         fallback_code = _extract_code(intent, data)
                         if fallback_code:
                             ok = _link_alexa_to_patient(user_id, fallback_code)
@@ -565,11 +597,13 @@ def create_alexa_app(
                                 copy.link_not_found_short.format(code=fallback_code),
                                 reprompt=copy.reprompt_link,
                             )
-                        return build_alexa_response(copy.welcome, reprompt=copy.reprompt_link)
+                        return _welcome_fresh_start(copy)
                     if wants_start_quiz(user_blob, locale):
                         return _handle_start_quiz(
                             session_key, user_id, _quiz, _adventure, _sessions, locale, copy
                         )
+                    if should_reset_link_to_welcome(user_blob or utterance_blob, locale):
+                        return _welcome_fresh_start(copy)
                     return build_alexa_response(
                         copy.fallback_try_quiz, reprompt=copy.reprompt_quiz
                     )
@@ -577,8 +611,19 @@ def create_alexa_app(
                 if intent_name == "LinkPatientIntent":
                     code = _extract_code(intent, data)
                     if not code:
+                        blob = user_blob or utterance_blob
+                        if should_reset_link_to_welcome(blob, locale):
+                            logger.info(
+                                "Alexa link: stale dialog reset to welcome heard=%r",
+                                blob[:80],
+                            )
+                            return _welcome_fresh_start(copy)
                         logger.info("Alexa link: no code parsed intent=%s", intent_name)
-                        return build_alexa_response(copy.link_no_code, reprompt=copy.reprompt_link)
+                        return build_alexa_response(
+                            copy.link_no_code,
+                            reprompt=copy.reprompt_link,
+                            session_attributes={},
+                        )
                     logger.info("Alexa link attempt code=%s locale=%s", code, locale)
                     ok = _link_alexa_to_patient(user_id, code)
                     if ok:

@@ -315,6 +315,35 @@ def wants_link(blob: str, locale: AlexaLocale) -> bool:
     return bool(blob and re.search(r"(اربط|ربط|link|كود|رمز)", blob))
 
 
+def wants_skill_reopen(blob: str, locale: AlexaLocale) -> bool:
+    """User is opening the skill again, not answering a pending link-code prompt."""
+    if not blob:
+        return False
+    if locale == "en":
+        return bool(
+            re.search(
+                r"\b(open|start|launch|begin)\b.*\b(atheeria|atheria)\b|"
+                r"\b(atheeria|atheria)\b.*\b(skill|program)\b|"
+                r"^atheeria$|^atheria$",
+                blob,
+            )
+        )
+    return bool(re.search(r"(افتح|شغل|ابدأ|ابدئ|أثيريا|اثيريا|مدرسة)", blob))
+
+
+def should_reset_link_to_welcome(blob: str, locale: AlexaLocale) -> bool:
+    """Stale LinkPatientIntent dialog: treat as fresh open unless user is still linking."""
+    if not blob:
+        return True
+    if wants_skill_reopen(blob, locale) or wants_training_program(blob, locale):
+        return True
+    if wants_link(blob, locale):
+        return False
+    if re.search(r"(?<!\d)\d{6}(?!\d)", blob):
+        return False
+    return True
+
+
 def wants_training_program(blob: str, locale: AlexaLocale) -> bool:
     if locale == "en":
         return bool(blob and re.search(r"\b(training|program|atheeria|attheeria)\b", blob))
