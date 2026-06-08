@@ -317,6 +317,29 @@ def wants_link(blob: str, locale: AlexaLocale) -> bool:
     return bool(re.search(r"(اربط|ربط|كود|الرمز|رمز)", blob))
 
 
+def skill_open_speech(
+    copy: AlexaCopy,
+    locale: AlexaLocale,
+    *,
+    linked: bool,
+    patient_name: str | None,
+) -> tuple[str, str]:
+    """Greeting when the skill opens or the user re-invokes it."""
+    if not linked:
+        return copy.welcome, copy.reprompt_link
+    if patient_name:
+        if locale == "en":
+            return (
+                f"Welcome back! You're linked to {patient_name}. Say: start the quiz.",
+                copy.reprompt_quiz,
+            )
+        return (
+            f"أهلاً بعودتك يا {patient_name}! قل: ابدأ الاختبار لبدء البرنامج التدريبي.",
+            copy.reprompt_quiz,
+        )
+    return copy.help_linked, copy.reprompt_quiz
+
+
 def wants_skill_reopen(blob: str, locale: AlexaLocale) -> bool:
     """User is opening the skill again, not answering a pending link-code prompt."""
     if not blob:
