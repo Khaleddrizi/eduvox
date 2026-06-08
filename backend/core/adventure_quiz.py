@@ -14,7 +14,8 @@ logger = logging.getLogger("AlexaQuiz.Adventure")
 ADVENTURE_PREFIX = "ADVENTURE:"
 ADVENTURE_ATTR_KEY = "atheeria_adventure"
 
-_ORDINAL_SPEECH = ("الأول", "الثاني", "الثالث")
+_ORDINAL_SPEECH_AR = ("الأول", "الثاني", "الثالث")
+_ORDINAL_SPEECH_EN = ("first", "second", "third")
 
 _READY_YES = frozenset(
     normalize_arabic_speech(w)
@@ -51,14 +52,15 @@ _READY_YES = frozenset(
 _CHOICE_ALIASES: dict[str, int] = {}
 for _n, _words in enumerate(
     (
-        ("1", "١", "واحد", "وحده", "واحده", "الاول", "اول", "اولى", "الاولى", "الأول"),
-        ("2", "٢", "اثنان", "اثنين", "ثنين", "تنين", "الثاني", "ثاني", "التاني", "الثانيه", "الثانية"),
-        ("3", "٣", "ثلاثة", "ثلاث", "ثلاثه", "تلاتة", "تلات", "الثالث", "ثالث", "التالت", "الثالثه"),
+        ("1", "١", "واحد", "وحده", "واحده", "الاول", "اول", "اولى", "الاولى", "الأول", "one", "first"),
+        ("2", "٢", "اثنان", "اثنين", "ثنين", "تنين", "الثاني", "ثاني", "التاني", "الثانيه", "الثانية", "two", "second"),
+        ("3", "٣", "ثلاثة", "ثلاث", "ثلاثه", "تلاتة", "تلات", "الثالث", "ثالث", "التالت", "الثالثه", "three", "third"),
     ),
     start=1,
 ):
     for w in _words:
         _CHOICE_ALIASES[normalize_arabic_speech(w)] = _n
+        _CHOICE_ALIASES[w.lower()] = _n
 
 
 def adventure_chunk(
@@ -109,17 +111,32 @@ def adventure_steps_from_questions(questions: list[dict]) -> list[dict]:
     return steps
 
 
-def _norm(text: str) -> str:
-    return normalize_arabic_speech((text or "").strip())
+def _locale_from(session: dict | None, default: str = "ar") -> str:
+    loc = (session or {}).get("locale") or default
+    return "en" if str(loc).startswith("en") else "ar"
 
 
-def _clean_answer_phrase(blob: str) -> str:
-    n = _norm(blob)
-    n = re.sub(
-        r"^(الجواب|جواب|اجابتي|إجابتي|اجابة|إجابة|قل|قول|رقم|الاجابة)\s*",
-        "",
-        n,
-    ).strip()
+def _norm(text: str, locale: str = "ar") -> str:
+    raw = (text or "").strip()
+    if locale == "en":
+        return re.sub(r"\s+", " ", raw.lower())
+    return normalize_arabic_speech(raw)
+
+
+def _clean_answer_phrase(blob: str, locale: str = "ar") -> str:
+    n = _norm(blob, locale)
+    if locale == "en":
+        n = re.sub(
+            r"^(answer|my answer|number|say|option|choice)\s*",
+            "",
+            n,
+        ).strip()
+    else:
+        n = re.sub(
+            r"^(الجواب|جواب|اجابتي|إجابتي|اجابة|إجابة|قل|قول|رقم|الاجابة)\s*",
+            "",
+            n,
+        ).strip()
     n = re.sub(r"[\.\u00B7\u2022\u06D4\u0640]", "", n)
     return n.strip()
 
@@ -129,13 +146,13 @@ def correct_choice_index(step: dict) -> int:
     return {"A": 1, "B": 2, "C": 3}.get(letter, 1)
 
 
-def parse_adventure_choice(text: str) -> int | None:
+def parse_adventure_choice(text: str, locale: str = "ar") -> int | None:
     """Map spoken answer to choice index 1, 2, or 3."""
     raw = (text or "").strip()
     if not raw:
         return None
 
-    cleaned = _clean_answer_phrase(raw)
+    cleaned = _clean_answer_phrase(raw, locale)
     if cleaned:
         compact = re.sub(r"\s+", "", cleaned)
         if compact in _CHOICE_ALIASES:
@@ -153,9 +170,14 @@ def parse_adventure_choice(text: str) -> int | None:
             if len(word) >= 3 and word in compact:
                 return idx
 
-        m = re.search(r"(ال?(?:اول|اولى|ثاني|ثانيه|ثالث|ثالثه|تاني|تالت))", compact)
-        if m:
-            return _CHOICE_ALIASES.get(m.group(1))
+        if locale == "en":
+            m = re.search(r"\b(first|second|third|one|two|three)\b", cleaned)
+            if m:
+                return _CHOICE_ALIASES.get(m.group(1))
+        else:
+            m = re.search(r"(ال?(?:اول|اولى|ثاني|ثانيه|ثالث|ثالثه|تاني|تالت))", compact)
+            if m:
+                return _CHOICE_ALIASES.get(m.group(1))
 
     letter = normalize_mcq_letter(raw)
     if letter == "A":
@@ -168,8 +190,8 @@ def parse_adventure_choice(text: str) -> int | None:
     return None
 
 
-def _matches_readiness(blob: str) -> bool:
-    n = _norm(blob)
+def _matches_readiness(blob: str, locale: str = "ar") -> bool:
+    n = _norm(blob, locale)
     if not n:
         return False
     if n in _READY_YES:
@@ -201,35 +223,38 @@ def infer_yes_from_intent(intent_name: str) -> str | None:
     return None
 
 
-def match_adventure_answer(user_text: str, step: dict) -> bool:
+def match_adventure_answer(user_text: str, step: dict, locale: str = "ar") -> bool:
     step_type = (step.get("_meta") or {}).get("t", "question")
     if step_type == "readiness":
-        return _matches_readiness(user_text)
-    choice = parse_adventure_choice(user_text)
+        return _matches_readiness(user_text, locale)
+    choice = parse_adventure_choice(user_text, locale)
     if choice is None:
         return False
     return choice == correct_choice_index(step)
 
 
 def adventure_speech_hint(session: dict | None) -> str:
+    locale = _locale_from(session)
     if not session:
-        return "قل: واحد، اثنان، أو ثلاثة."
+        return "Say: one, two, or three." if locale == "en" else "قل: واحد، اثنان، أو ثلاثة."
     steps = session.get("adventure_steps") or []
     idx = int(session.get("step_index", 0))
     if idx >= len(steps):
-        return "قل: واحد، اثنان، أو ثلاثة."
+        return "Say: one, two, or three." if locale == "en" else "قل: واحد، اثنان، أو ثلاثة."
     step = steps[idx]
     meta = step.get("_meta") or {}
     if meta.get("t") == "readiness":
-        return "قل: نعم، أو جاهز."
+        return "Say: yes, or ready." if locale == "en" else "قل: نعم، أو جاهز."
+    if locale == "en":
+        return "Say: one, two, or three. Or: first, second, third."
     return "قل: واحد، اثنان، أو ثلاثة. أو: الأول، الثاني، الثالث."
 
 
-def pick_speech_for_step(candidates: list[str], step: dict) -> str:
+def pick_speech_for_step(candidates: list[str], step: dict, locale: str = "ar") -> str:
     """Prefer a candidate that parses to the correct choice index."""
     if (step.get("_meta") or {}).get("t") == "readiness":
         for c in candidates:
-            if c and match_adventure_answer(c, step):
+            if c and match_adventure_answer(c, step, locale):
                 return c.strip()
         for c in candidates:
             if c and c.strip():
@@ -238,10 +263,10 @@ def pick_speech_for_step(candidates: list[str], step: dict) -> str:
 
     expected = correct_choice_index(step)
     for c in candidates:
-        if c and parse_adventure_choice(c) == expected:
+        if c and parse_adventure_choice(c, locale) == expected:
             return c.strip()
     for c in candidates:
-        if c and parse_adventure_choice(c) is not None:
+        if c and parse_adventure_choice(c, locale) is not None:
             return c.strip()
     non_empty = [c.strip() for c in candidates if c and c.strip()]
     if non_empty:
@@ -255,7 +280,13 @@ def _option_label(opt: str) -> str:
     return s
 
 
-def format_step_speech(step: dict, *, patient_name: str | None = None, prefix: str = "") -> str:
+def format_step_speech(
+    step: dict,
+    *,
+    patient_name: str | None = None,
+    prefix: str = "",
+    locale: str = "ar",
+) -> str:
     parts: list[str] = []
     if prefix:
         parts.append(prefix.strip() + " ")
@@ -269,16 +300,25 @@ def format_step_speech(step: dict, *, patient_name: str | None = None, prefix: s
     opts = step.get("options") or {}
     if step_type == "question":
         labels = []
+        ordinals = _ORDINAL_SPEECH_EN if locale == "en" else _ORDINAL_SPEECH_AR
         for i, key in enumerate(("A", "B", "C")):
             text = _option_label(opts.get(key, ""))
             if text and text != "-":
-                labels.append(f"الجواب {_ORDINAL_SPEECH[i]}: {text}")
+                if locale == "en":
+                    labels.append(f"Answer {ordinals[i]}: {text}")
+                else:
+                    labels.append(f"الجواب {ordinals[i]}: {text}")
         if labels:
             parts.append(" ")
             parts.append(". ".join(labels) + ". ")
-            parts.append("قل رقم الجواب: واحد، اثنان، أو ثلاثة.")
+            if locale == "en":
+                parts.append("Say the answer number: one, two, or three.")
+            else:
+                parts.append("قل رقم الجواب: واحد، اثنان، أو ثلاثة.")
     text = "".join(parts)
     if patient_name and step_type == "readiness" and not prefix:
+        if locale == "en":
+            return f"Hi {patient_name}! {text}"
         return f"أهلاً {patient_name}! {text}"
     return text
 
@@ -396,20 +436,25 @@ class AdventureQuizService:
             s["patient_id"] = patient_id
         if patient_name:
             s["patient_name"] = patient_name
-        return format_step_speech(steps[0], patient_name=patient_name)
+        return format_step_speech(steps[0], patient_name=patient_name, locale=locale)
 
     def repeat_current(self, session_id: str) -> tuple[str, bool]:
         s = self._session(session_id)
+        locale = _locale_from(s)
         if not s or s.get("mode") != "adventure":
-            return "لا يوجد برنامج نشط.", False
+            return ("There is no active program.", False) if locale == "en" else ("لا يوجد برنامج نشط.", False)
         steps = s.get("adventure_steps") or []
         idx = s.get("step_index", 0)
         if idx >= len(steps):
-            return "انتهت المغامرة.", True
+            return ("The adventure is over.", True) if locale == "en" else ("انتهت المغامرة.", True)
         hint = adventure_speech_hint(s)
+        repeat_msg = (
+            f"I didn't understand your answer number. {hint} "
+            if locale == "en"
+            else f"لم أفهم رقم جوابك. {hint} "
+        )
         return (
-            f"لم أفهم رقم جوابك. {hint} "
-            + format_step_speech(steps[idx]),
+            repeat_msg + format_step_speech(steps[idx], locale=locale),
             False,
         )
 
@@ -417,7 +462,10 @@ class AdventureQuizService:
         self, session_id: str, user_text: str
     ) -> tuple[str, bool, dict | None]:
         s = self._session(session_id)
+        locale = _locale_from(s)
         if not s or s.get("mode") != "adventure":
+            if locale == "en":
+                return "There is no active program. Say: start the quiz.", False, None
             return "لا يوجد برنامج نشط. قل: ابدأ الاختبار.", False, None
         steps: list[dict] = s.get("adventure_steps") or []
         idx = int(s.get("step_index", 0))
@@ -426,12 +474,12 @@ class AdventureQuizService:
             self._sessions.pop(session_id)
             return self._outro(s), True, snapshot
         step = steps[idx]
-        if not match_adventure_answer(user_text, step):
+        if not match_adventure_answer(user_text, step, locale):
             logger.info(
                 "Adventure no match step=%s heard=%r parsed=%s expected=%s",
                 (step.get("_meta") or {}).get("o"),
                 user_text,
-                parse_adventure_choice(user_text),
+                parse_adventure_choice(user_text, locale),
                 correct_choice_index(step),
             )
             speech, _ = self.repeat_current(session_id)
@@ -442,11 +490,15 @@ class AdventureQuizService:
         feedback_parts: list[str] = []
 
         if step_type == "readiness":
-            feedback_parts.append("رائع! لنبدأ المغامرة.")
+            feedback_parts.append(
+                "Great! Let's start the adventure." if locale == "en" else "رائع! لنبدأ المغامرة."
+            )
         elif meta.get("star"):
             s["stars"] = int(s.get("stars", 0)) + 1
             on_ok = (step.get("success_feedback") or meta.get("ok") or "").strip()
-            feedback_parts.append(on_ok or "ممتاز! حصلت على نجمة.")
+            feedback_parts.append(
+                on_ok or ("Excellent! You earned a star." if locale == "en" else "ممتاز! حصلت على نجمة.")
+            )
         else:
             on_ok = (step.get("success_feedback") or meta.get("ok") or "").strip()
             if on_ok:
@@ -467,20 +519,28 @@ class AdventureQuizService:
         s["questions"] = [steps[next_idx]]
         s["current_index"] = 0
         prefix = " ".join(p for p in feedback_parts if p)
-        next_speech = format_step_speech(steps[next_idx], prefix=prefix)
+        next_speech = format_step_speech(steps[next_idx], prefix=prefix, locale=locale)
         return next_speech, False, None
 
     def end_early(self, session_id: str) -> tuple[str, bool, dict | None]:
         s = self._session(session_id)
+        locale = _locale_from(s)
         if not s or s.get("mode") != "adventure":
-            return "لا يوجد برنامج لإنهائه.", True, None
+            return ("There is no program to finish.", True, None) if locale == "en" else ("لا يوجد برنامج لإنهائه.", True, None)
         snapshot = self._snapshot(s)
         self._sessions.pop(session_id)
-        return self._outro(s) + " إلى اللقاء!", True, snapshot
+        goodbye = " Goodbye!" if locale == "en" else " إلى اللقاء!"
+        return self._outro(s) + goodbye, True, snapshot
 
     def _outro(self, session: dict) -> str:
         stars = int(session.get("stars", 0))
         total = int(session.get("max_stars", 4)) or 4
+        locale = _locale_from(session)
+        if locale == "en":
+            return (
+                f"Round complete. You earned {stars} stars out of {total}. "
+                "You're a focus champion today!"
+            )
         return (
             f"انتهت الجولة. لقد حصلت على {stars} نجوم من أصل {total}. "
             "أنت بطل التركيز اليوم!"

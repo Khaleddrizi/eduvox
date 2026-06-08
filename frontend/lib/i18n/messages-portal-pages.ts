@@ -129,6 +129,22 @@ export const PORTAL_PAGES_AR: PortalPagesTable = {
   "sp.library.starsAdventureBtn": "إضافة مغامرة النجوم",
   "sp.library.toastStarsAdventureOk": "تمت إضافة مغامرة النجوم ({n} خطوات).",
   "sp.library.toastStarsAdventureFail": "تعذّر إضافة مغامرة النجوم",
+  "sp.library.readyKidsEnTitle": "برنامج ADHD جاهز للأطفال (إنجليزي)",
+  "sp.library.readyKidsEnHint":
+    "أسئلة إنجليزية مبسّطة: ثلاثة اقتراحات (A، B، C) وجواب واحد صحيح. للمهارة الإنجليزية على Alexa.",
+  "sp.library.readyKidsEnFlow":
+    "1) أضف البرنامج الإنجليزي بالزر أدناه.\n2) عيّنه لطفل من صفحة الطفل.\n3) على مهارة Alexa الإنجليزية اربط الحساب وابدأ الاختبار.",
+  "sp.library.readyKidsEnBtn": "إضافة البرنامج الإنجليزي",
+  "sp.library.toastReadyKidsEnOk": "تمت إضافة البرنامج الإنجليزي ({n} أسئلة).",
+  "sp.library.toastReadyKidsEnFail": "تعذّر إضافة البرنامج الإنجليزي",
+  "sp.library.starsAdventureEnTitle": "مغامرة النجوم (6–8 سنوات، إنجليزي)",
+  "sp.library.starsAdventureEnHint":
+    "برنامج مسرّح على Alexa بالإنجليزية: الإجابة برقم أو ترتيب (one، two، first…) ونجوم.",
+  "sp.library.starsAdventureEnFlow":
+    "اربط على Alexa الإنجليزية ← start quiz ← yes ← one/two/three أو first/second/third.",
+  "sp.library.starsAdventureEnBtn": "إضافة مغامرة النجوم (إنجليزي)",
+  "sp.library.toastStarsAdventureEnOk": "تمت إضافة مغامرة النجوم الإنجليزية ({n} خطوات).",
+  "sp.library.toastStarsAdventureEnFail": "تعذّر إضافة مغامرة النجوم الإنجليزية",
 
   "sp.patientDetail.loadError": "تعذّر تحميل تفاصيل المريض",
   "sp.patientDetail.loading": "جاري تحميل تفاصيل المريض…",
@@ -354,6 +370,22 @@ export const PORTAL_PAGES_AR: PortalPagesTable = {
   "pa.library.starsAdventureBtn": "إضافة مغامرة النجوم",
   "pa.library.toastStarsAdventureOk": "تمت إضافة مغامرة النجوم ({n} خطوات).",
   "pa.library.toastStarsAdventureFail": "تعذّر إضافة مغامرة النجوم",
+  "pa.library.readyKidsEnTitle": "برنامج ADHD جاهز للأطفال (إنجليزي)",
+  "pa.library.readyKidsEnHint":
+    "أسئلة إنجليزية مبسّطة: ثلاثة اقتراحات (A، B، C) وجواب واحد صحيح. للمهارة الإنجليزية على Alexa.",
+  "pa.library.readyKidsEnFlow":
+    "1) أضف البرنامج الإنجليزي بالزر أدناه.\n2) عيّنه لطفل من صفحة الطفل.\n3) على مهارة Alexa الإنجليزية اربط الحساب وابدأ الاختبار.",
+  "pa.library.readyKidsEnBtn": "إضافة البرنامج الإنجليزي",
+  "pa.library.toastReadyKidsEnOk": "تمت إضافة البرنامج الإنجليزي ({n} أسئلة).",
+  "pa.library.toastReadyKidsEnFail": "تعذّر إضافة البرنامج الإنجليزي",
+  "pa.library.starsAdventureEnTitle": "مغامرة النجوم (6–8 سنوات، إنجليزي)",
+  "pa.library.starsAdventureEnHint":
+    "برنامج مسرّح على Alexa بالإنجليزية: الإجابة برقم أو ترتيب (one، two، first…) ونجوم.",
+  "pa.library.starsAdventureEnFlow":
+    "اربط على Alexa الإنجليزية ← start quiz ← yes ← one/two/three أو first/second/third.",
+  "pa.library.starsAdventureEnBtn": "إضافة مغامرة النجوم (إنجليزي)",
+  "pa.library.toastStarsAdventureEnOk": "تمت إضافة مغامرة النجوم الإنجليزية ({n} خطوات).",
+  "pa.library.toastStarsAdventureEnFail": "تعذّر إضافة مغامرة النجوم الإنجليزية",
   "pa.childDetail.colDate": "التاريخ",
   "pa.childDetail.colScore": "النتيجة",
   "pa.childDetail.colQuestions": "الأسئلة",
@@ -520,7 +552,7 @@ export const PORTAL_PAGES_EN: PortalPagesTable = {
     "You are in the grace period after the last paid day. You can view the library; new uploads and processing will stop when grace ends unless payment is recorded.",
   "sp.library.readyKidsTitle": "Ready program for kids (ADHD)",
   "sp.library.readyKidsHint":
-    "Simple English questions: three choices and one correct answer per question. No PDF. You can add more than one copy.",
+    "Simple Arabic questions: three choices (A, B, C) and one correct answer per question. No PDF. You can add more than one copy.",
   "sp.library.readyKidsFlow":
     "1) Add the ready program with the button below.\n2) Create a child patient and assign this program on the child’s page.\n3) On Alexa, link the account with the child’s code, then run the quiz as the child would.",
   "sp.library.readyKidsBtn": "Add ready kids program",
@@ -534,6 +566,22 @@ export const PORTAL_PAGES_EN: PortalPagesTable = {
   "sp.library.starsAdventureBtn": "Add Stars Adventure",
   "sp.library.toastStarsAdventureOk": "Stars Adventure added ({n} steps).",
   "sp.library.toastStarsAdventureFail": "Could not add Stars Adventure",
+  "sp.library.readyKidsEnTitle": "Ready ADHD program for kids (English)",
+  "sp.library.readyKidsEnHint":
+    "Simple English questions: three choices (A, B, C) and one correct answer per question. For the English Alexa skill.",
+  "sp.library.readyKidsEnFlow":
+    "1) Add the English program with the button below.\n2) Assign it to a child on the child’s page.\n3) On the English Alexa skill, link the account and start the quiz.",
+  "sp.library.readyKidsEnBtn": "Add English ready program",
+  "sp.library.toastReadyKidsEnOk": "English program added ({n} questions).",
+  "sp.library.toastReadyKidsEnFail": "Could not add the English program",
+  "sp.library.starsAdventureEnTitle": "Stars Adventure (ages 6–8, English)",
+  "sp.library.starsAdventureEnHint":
+    "Scripted English Alexa program: answer by number or order (one, two, first…) and earn stars.",
+  "sp.library.starsAdventureEnFlow":
+    "Link on English Alexa → start quiz → yes → one/two/three or first/second/third.",
+  "sp.library.starsAdventureEnBtn": "Add Stars Adventure (English)",
+  "sp.library.toastStarsAdventureEnOk": "English Stars Adventure added ({n} steps).",
+  "sp.library.toastStarsAdventureEnFail": "Could not add English Stars Adventure",
 
   "sp.patientDetail.loadError": "Could not load patient details",
   "sp.patientDetail.loading": "Loading patient details…",
@@ -759,6 +807,22 @@ export const PORTAL_PAGES_EN: PortalPagesTable = {
   "pa.library.starsAdventureBtn": "Add Stars Adventure",
   "pa.library.toastStarsAdventureOk": "Stars Adventure added ({n} steps).",
   "pa.library.toastStarsAdventureFail": "Could not add Stars Adventure",
+  "pa.library.readyKidsEnTitle": "Ready ADHD program for kids (English)",
+  "pa.library.readyKidsEnHint":
+    "Simple English questions: three choices (A, B, C) and one correct answer per question. For the English Alexa skill.",
+  "pa.library.readyKidsEnFlow":
+    "1) Add the English program with the button below.\n2) Assign it to a child on the child’s page.\n3) On the English Alexa skill, link the account and start the quiz.",
+  "pa.library.readyKidsEnBtn": "Add English ready program",
+  "pa.library.toastReadyKidsEnOk": "English program added ({n} questions).",
+  "pa.library.toastReadyKidsEnFail": "Could not add the English program",
+  "pa.library.starsAdventureEnTitle": "Stars Adventure (ages 6–8, English)",
+  "pa.library.starsAdventureEnHint":
+    "Scripted English Alexa program: answer by number or order (one, two, first…) and earn stars.",
+  "pa.library.starsAdventureEnFlow":
+    "Link on English Alexa → start quiz → yes → one/two/three or first/second/third.",
+  "pa.library.starsAdventureEnBtn": "Add Stars Adventure (English)",
+  "pa.library.toastStarsAdventureEnOk": "English Stars Adventure added ({n} steps).",
+  "pa.library.toastStarsAdventureEnFail": "Could not add English Stars Adventure",
   "pa.childDetail.colDate": "Date",
   "pa.childDetail.colScore": "Score",
   "pa.childDetail.colQuestions": "Questions",
@@ -932,6 +996,22 @@ export const PORTAL_PAGES_FR: PortalPagesTable = {
   "sp.library.readyKidsBtn": "Ajouter le programme prêt",
   "sp.library.toastReadyKidsOk": "Programme prêt ajouté ({n} questions).",
   "sp.library.toastReadyKidsFail": "Impossible d’ajouter le programme prêt",
+  "sp.library.readyKidsEnTitle": "Programme TDAH prêt pour enfants (anglais)",
+  "sp.library.readyKidsEnHint":
+    "Questions simples en anglais : trois choix (A, B, C) et une bonne réponse. Pour la skill Alexa en anglais.",
+  "sp.library.readyKidsEnFlow":
+    "1) Ajoutez le programme anglais.\n2) Attribuez-le à un enfant.\n3) Sur Alexa (anglais), liez le compte et lancez le quiz.",
+  "sp.library.readyKidsEnBtn": "Ajouter le programme anglais",
+  "sp.library.toastReadyKidsEnOk": "Programme anglais ajouté ({n} questions).",
+  "sp.library.toastReadyKidsEnFail": "Impossible d’ajouter le programme anglais",
+  "sp.library.starsAdventureEnTitle": "Aventure des étoiles (6–8 ans, anglais)",
+  "sp.library.starsAdventureEnHint":
+    "Programme Alexa scénarisé en anglais : répondez par numéro ou ordre (one, two, first…) et gagnez des étoiles.",
+  "sp.library.starsAdventureEnFlow":
+    "Alexa anglais → start quiz → yes → one/two/three ou first/second/third.",
+  "sp.library.starsAdventureEnBtn": "Ajouter Aventure des étoiles (anglais)",
+  "sp.library.toastStarsAdventureEnOk": "Aventure des étoiles (anglais) ajoutée ({n} étapes).",
+  "sp.library.toastStarsAdventureEnFail": "Impossible d’ajouter l’aventure anglaise",
 
   "sp.patientDetail.loadError": "Impossible de charger le patient",
   "sp.patientDetail.loading": "Chargement du patient…",
@@ -1149,6 +1229,22 @@ export const PORTAL_PAGES_FR: PortalPagesTable = {
   "pa.library.readyKidsBtn": "Ajouter le programme prêt",
   "pa.library.toastReadyKidsOk": "Programme prêt ajouté ({n} questions).",
   "pa.library.toastReadyKidsFail": "Impossible d’ajouter le programme prêt",
+  "pa.library.readyKidsEnTitle": "Programme TDAH prêt pour enfants (anglais)",
+  "pa.library.readyKidsEnHint":
+    "Questions simples en anglais : trois choix (A, B, C) et une bonne réponse. Pour la skill Alexa en anglais.",
+  "pa.library.readyKidsEnFlow":
+    "1) Ajoutez le programme anglais.\n2) Attribuez-le à un enfant.\n3) Sur Alexa (anglais), liez le compte et lancez le quiz.",
+  "pa.library.readyKidsEnBtn": "Ajouter le programme anglais",
+  "pa.library.toastReadyKidsEnOk": "Programme anglais ajouté ({n} questions).",
+  "pa.library.toastReadyKidsEnFail": "Impossible d’ajouter le programme anglais",
+  "pa.library.starsAdventureEnTitle": "Aventure des étoiles (6–8 ans, anglais)",
+  "pa.library.starsAdventureEnHint":
+    "Programme Alexa scénarisé en anglais : répondez par numéro ou ordre (one, two, first…) et gagnez des étoiles.",
+  "pa.library.starsAdventureEnFlow":
+    "Alexa anglais → start quiz → yes → one/two/three ou first/second/third.",
+  "pa.library.starsAdventureEnBtn": "Ajouter Aventure des étoiles (anglais)",
+  "pa.library.toastStarsAdventureEnOk": "Aventure des étoiles (anglais) ajoutée ({n} étapes).",
+  "pa.library.toastStarsAdventureEnFail": "Impossible d’ajouter l’aventure anglaise",
   "pa.childDetail.colDate": "Date",
   "pa.childDetail.colScore": "Score",
   "pa.childDetail.colQuestions": "Questions",

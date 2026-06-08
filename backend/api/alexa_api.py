@@ -298,7 +298,9 @@ def _resolve_answer_for_session(
                 seen.add(c)
                 unique.append(c)
         if step:
-            picked = pick_speech_for_step(unique, step)
+            loc = (session or {}).get("locale") or "ar"
+            adventure_locale = "en" if str(loc).startswith("en") else "ar"
+            picked = pick_speech_for_step(unique, step, adventure_locale)
             if picked:
                 logger.info(
                     "Adventure speech candidates=%r picked=%r intent=%s",
@@ -362,7 +364,13 @@ def _handle_quiz_answer_attempt(
                 user_blob,
                 (session or {}).get("step_index"),
             )
-            if intent_name == "AMAZON.FallbackIntent":
+            loc = (session or {}).get("locale") or "ar"
+            if str(loc).startswith("en"):
+                if intent_name == "AMAZON.FallbackIntent":
+                    msg = f"I didn't receive your words from Alexa. {hint}"
+                else:
+                    msg = f"I didn't hear your answer. {hint}"
+            elif intent_name == "AMAZON.FallbackIntent":
                 msg = f"لم أستقبل كلمتك من أليكسا. {hint}"
             else:
                 msg = f"لم أسمع إجابتك. {hint}"
