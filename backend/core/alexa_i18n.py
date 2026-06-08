@@ -310,9 +310,11 @@ def wants_start_quiz(blob: str, locale: AlexaLocale) -> bool:
 
 
 def wants_link(blob: str, locale: AlexaLocale) -> bool:
+    if not blob:
+        return False
     if locale == "en":
-        return bool(blob and re.search(r"\b(link|code)\b", blob))
-    return bool(blob and re.search(r"(اربط|ربط|link|كود|رمز)", blob))
+        return bool(re.search(r"\b(link|code)\b", blob, re.IGNORECASE))
+    return bool(re.search(r"(اربط|ربط|كود|الرمز|رمز)", blob))
 
 
 def wants_skill_reopen(blob: str, locale: AlexaLocale) -> bool:

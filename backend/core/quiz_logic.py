@@ -339,8 +339,8 @@ class SessionStore:
             return s["questions"][idx]
         return None
 
-    def pop(self, session_id: str) -> Dict | None:
-        return self._sessions.pop(session_id, None)
+    def pop(self, session_id: str, default: Dict | None = None) -> Dict | None:
+        return self._sessions.pop(session_id, default)
 
     def clear_if_new(self, session_id: str, is_new: bool) -> None:
         if is_new and session_id in self._sessions:

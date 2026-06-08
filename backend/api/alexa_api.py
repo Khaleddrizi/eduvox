@@ -198,7 +198,7 @@ def _welcome_fresh_start(copy, *, end_session: bool = False):
     sessions = getattr(g, "alexa_sessions", None)
     session_key = getattr(g, "alexa_session_key", None)
     if sessions and session_key:
-        sessions.pop(session_key, None)
+        sessions.pop(session_key)
     return build_alexa_response(
         copy.welcome,
         end_session=end_session,
@@ -496,7 +496,7 @@ def create_alexa_app(
                 if (
                     intent_name == "LinkPatientIntent"
                     and not link_code
-                    and should_reset_link_to_welcome(user_blob or utterance_blob, locale)
+                    and should_reset_link_to_welcome(user_blob, locale)
                 ):
                     logger.info(
                         "Alexa link: early stale dialog reset heard=%r",
@@ -561,7 +561,7 @@ def create_alexa_app(
                     return build_alexa_response(copy.help_linked, reprompt=copy.reprompt_quiz)
 
                 if intent_name in ("AMAZON.StopIntent", "AMAZON.CancelIntent"):
-                    _sessions.pop(session_key, None)
+                    _sessions.pop(session_key)
                     return build_alexa_response(
                         copy.stop, end_session=True, session_attributes={}
                     )
@@ -602,7 +602,7 @@ def create_alexa_app(
                         return _handle_start_quiz(
                             session_key, user_id, _quiz, _adventure, _sessions, locale, copy
                         )
-                    if should_reset_link_to_welcome(user_blob or utterance_blob, locale):
+                    if should_reset_link_to_welcome(user_blob, locale):
                         return _welcome_fresh_start(copy)
                     return build_alexa_response(
                         copy.fallback_try_quiz, reprompt=copy.reprompt_quiz
@@ -611,11 +611,10 @@ def create_alexa_app(
                 if intent_name == "LinkPatientIntent":
                     code = _extract_code(intent, data)
                     if not code:
-                        blob = user_blob or utterance_blob
-                        if should_reset_link_to_welcome(blob, locale):
+                        if should_reset_link_to_welcome(user_blob, locale):
                             logger.info(
                                 "Alexa link: stale dialog reset to welcome heard=%r",
-                                blob[:80],
+                                user_blob[:80],
                             )
                             return _welcome_fresh_start(copy)
                         logger.info("Alexa link: no code parsed intent=%s", intent_name)
@@ -714,8 +713,13 @@ def create_alexa_app(
 
         except Exception as e:
             logger.exception("Alexa webhook error: %s", e)
+            err_locale = "ar"
+            try:
+                err_locale = detect_alexa_locale(request.get_json() or {})
+            except Exception:
+                pass
             return build_alexa_response(
-                get_alexa_copy("ar").server_error, end_session=True
+                get_alexa_copy(err_locale).server_error, end_session=True
             )
 
     _alexa_probe = {"service": "Alexa Quiz API", "status": "running"}
