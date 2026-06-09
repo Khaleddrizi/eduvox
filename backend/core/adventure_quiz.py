@@ -310,11 +310,7 @@ def format_step_speech(
                     labels.append(f"الجواب {ordinals[i]}: {text}")
         if labels:
             parts.append(" ")
-            parts.append(". ".join(labels) + ". ")
-            if locale == "en":
-                parts.append("Say the answer number: one, two, or three.")
-            else:
-                parts.append("قل رقم الجواب: واحد، اثنان، أو ثلاثة.")
+            parts.append(". ".join(labels) + ".")
     text = "".join(parts)
     if patient_name and step_type == "readiness" and not prefix:
         if locale == "en":
@@ -458,6 +454,42 @@ class AdventureQuizService:
             False,
         )
 
+    def _record_wrong_step(self, session: dict, step: dict) -> None:
+        step["times_asked"] = step.get("times_asked", 0) + 1
+        meta = step.get("_meta") or {}
+        topic = (meta.get("st") or step.get("question") or "adventure").strip()
+        if topic:
+            wrong = list(session.get("wrong_topics") or [])
+            wrong.append(topic)
+            session["wrong_topics"] = wrong
+
+    def _wrong_answer_feedback(self, locale: str) -> str:
+        if locale == "en":
+            return "That's not the right answer."
+        return "جواب غلط."
+
+    def _advance_to_next_step(
+        self,
+        session_id: str,
+        session: dict,
+        steps: list[dict],
+        idx: int,
+        *,
+        prefix: str,
+        locale: str,
+    ) -> tuple[str, bool, dict | None]:
+        next_idx = idx + 1
+        session["step_index"] = next_idx
+        if next_idx >= len(steps):
+            speech = f"{prefix} {self._outro(session)}".strip()
+            snapshot = self._snapshot(session)
+            self._sessions.pop(session_id)
+            return speech, True, snapshot
+        session["questions"] = [steps[next_idx]]
+        session["current_index"] = 0
+        next_speech = format_step_speech(steps[next_idx], prefix=prefix, locale=locale)
+        return next_speech, False, None
+
     def answer(
         self, session_id: str, user_text: str
     ) -> tuple[str, bool, dict | None]:
@@ -474,19 +506,43 @@ class AdventureQuizService:
             self._sessions.pop(session_id)
             return self._outro(s), True, snapshot
         step = steps[idx]
-        if not match_adventure_answer(user_text, step, locale):
-            logger.info(
-                "Adventure no match step=%s heard=%r parsed=%s expected=%s",
-                (step.get("_meta") or {}).get("o"),
-                user_text,
-                parse_adventure_choice(user_text, locale),
-                correct_choice_index(step),
-            )
-            speech, _ = self.repeat_current(session_id)
-            return speech, False, None
-
         meta = step.get("_meta") or {}
         step_type = meta.get("t", "question")
+
+        if step_type == "readiness":
+            if not _matches_readiness(user_text, locale):
+                logger.info(
+                    "Adventure readiness no match heard=%r",
+                    user_text,
+                )
+                speech, _ = self.repeat_current(session_id)
+                return speech, False, None
+        else:
+            choice = parse_adventure_choice(user_text, locale)
+            expected = correct_choice_index(step)
+            if choice is None:
+                logger.info(
+                    "Adventure unparsed step=%s heard=%r expected=%s",
+                    meta.get("o"),
+                    user_text,
+                    expected,
+                )
+                speech, _ = self.repeat_current(session_id)
+                return speech, False, None
+            if choice != expected:
+                logger.info(
+                    "Adventure wrong answer step=%s heard=%r parsed=%s expected=%s",
+                    meta.get("o"),
+                    user_text,
+                    choice,
+                    expected,
+                )
+                self._record_wrong_step(s, step)
+                prefix = self._wrong_answer_feedback(locale)
+                return self._advance_to_next_step(
+                    session_id, s, steps, idx, prefix=prefix, locale=locale
+                )
+
         feedback_parts: list[str] = []
 
         if step_type == "readiness":
@@ -507,20 +563,10 @@ class AdventureQuizService:
         step["times_asked"] = step.get("times_asked", 0) + 1
         step["times_correct"] = step.get("times_correct", 0) + 1
 
-        next_idx = idx + 1
-        s["step_index"] = next_idx
-        if next_idx >= len(steps):
-            prefix = " ".join(p for p in feedback_parts if p)
-            speech = prefix + " " + self._outro(s)
-            snapshot = self._snapshot(s)
-            self._sessions.pop(session_id)
-            return speech.strip(), True, snapshot
-
-        s["questions"] = [steps[next_idx]]
-        s["current_index"] = 0
         prefix = " ".join(p for p in feedback_parts if p)
-        next_speech = format_step_speech(steps[next_idx], prefix=prefix, locale=locale)
-        return next_speech, False, None
+        return self._advance_to_next_step(
+            session_id, s, steps, idx, prefix=prefix, locale=locale
+        )
 
     def end_early(self, session_id: str) -> tuple[str, bool, dict | None]:
         s = self._session(session_id)
