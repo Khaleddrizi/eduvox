@@ -4,8 +4,18 @@ import re
 import logging
 from flask import Flask, g, request, jsonify
 
-from backend.config import QUESTION_CACHE_PATH, WEAK_CHUNK_THRESHOLD
-from backend.core.alexa_codes import looks_like_link_code_attempt, normalize_alexa_link_code
+from backend.config import (
+    ALEXA_DEMO_AUTO_LINK,
+    ALEXA_DEMO_PATIENT_CODE,
+    ALEXA_DEMO_PATIENT_NAME,
+    QUESTION_CACHE_PATH,
+    WEAK_CHUNK_THRESHOLD,
+)
+from backend.core.alexa_codes import (
+    looks_like_link_code_attempt,
+    normalize_alexa_link_code,
+    normalize_arabic_speech,
+)
 from backend.core.alexa_i18n import (
     collect_speech_candidates,
     detect_alexa_locale,
@@ -241,8 +251,61 @@ def _clear_alexa_dialog_state():
         sessions.pop(session_key)
 
 
+def _find_demo_patient(db) -> PatientModel | None:
+    patient_repo = PatientRepository(db)
+    if ALEXA_DEMO_PATIENT_CODE:
+        patient = patient_repo.get_by_alexa_code(ALEXA_DEMO_PATIENT_CODE)
+        if patient:
+            return patient
+    if not ALEXA_DEMO_PATIENT_NAME:
+        return None
+    target = normalize_arabic_speech(ALEXA_DEMO_PATIENT_NAME)
+    if not target:
+        return None
+    for patient in db.query(PatientModel).filter(PatientModel.name.isnot(None)).all():
+        name = normalize_arabic_speech(patient.name or "")
+        if name == target or target in name or name in target:
+            return patient
+    return None
+
+
+def _ensure_demo_auto_link(user_id: str) -> bool:
+    """Temporary demo mode: bind this Alexa account to the configured patient."""
+    if not ALEXA_DEMO_AUTO_LINK or not user_id:
+        return False
+    if _alexa_shows_as_linked(user_id):
+        return True
+    try:
+        with get_db() as db:
+            patient = _find_demo_patient(db)
+            if not patient:
+                logger.warning(
+                    "Alexa demo: patient not found name=%r code=%r",
+                    ALEXA_DEMO_PATIENT_NAME,
+                    ALEXA_DEMO_PATIENT_CODE or "(none)",
+                )
+                return False
+            user_repo = UserRepository(db)
+            user_repo.link_to_patient(user_id, patient.id)
+            user_repo.clear_pending_fresh_skill_open(user_id)
+            db.commit()
+            logger.info(
+                "Alexa demo: auto-linked user=%s patient_id=%s name=%s",
+                user_id[:24],
+                patient.id,
+                patient.name,
+            )
+            return True
+    except Exception as e:
+        logger.warning("Alexa demo auto-link failed: %s", e)
+        return False
+
+
 def _finish_quiz_and_release_link(user_id: str) -> None:
     """After a quiz ends, release the link and flag the next skill open as a fresh start."""
+    if ALEXA_DEMO_AUTO_LINK:
+        logger.info("Alexa demo: keeping patient link after quiz end user=%s", (user_id or "")[:24])
+        return
     if not user_id:
         return
     try:
@@ -285,9 +348,11 @@ def _skill_open_response(
     force_fresh: bool = False,
 ):
     """Clear stale state and greet — linked users get a personalized welcome."""
-    if force_fresh and user_id:
+    if force_fresh and user_id and not ALEXA_DEMO_AUTO_LINK:
         _finish_quiz_and_release_link(user_id)
     _clear_alexa_dialog_state()
+    if user_id:
+        _ensure_demo_auto_link(user_id)
     linked = False if force_fresh else _alexa_shows_as_linked(user_id)
     patient_name = None
     if linked:
@@ -558,12 +623,16 @@ def create_alexa_app(
             locale = detect_alexa_locale(data)
             copy = get_alexa_copy(locale)
             logger.info(
-                "Alexa request_type=%s locale=%s session_new=%s user=%s",
+                "Alexa request_type=%s locale=%s session_new=%s user=%s demo=%s",
                 request_type,
                 locale,
                 is_new,
                 (user_id or "")[:24],
+                ALEXA_DEMO_AUTO_LINK,
             )
+
+            if user_id:
+                _ensure_demo_auto_link(user_id)
 
             if request_type == "SessionEndedRequest":
                 return build_alexa_session_end_response()

@@ -29,3 +29,9 @@ FLASK_PORT = int(os.getenv("FLASK_PORT", "5002"))
 WEAK_CHUNK_THRESHOLD = float(os.getenv("WEAK_CHUNK_THRESHOLD", "0.6"))
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "400"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "50"))
+
+# Graduation / demo only — auto-link Alexa to a patient (no spoken link code).
+# Set ALEXA_DEMO_AUTO_LINK=0 or remove after the demo.
+ALEXA_DEMO_AUTO_LINK = os.getenv("ALEXA_DEMO_AUTO_LINK", "").lower() in ("1", "true", "yes")
+ALEXA_DEMO_PATIENT_NAME = os.getenv("ALEXA_DEMO_PATIENT_NAME", "سامي").strip()
+ALEXA_DEMO_PATIENT_CODE = os.getenv("ALEXA_DEMO_PATIENT_CODE", "").strip()
