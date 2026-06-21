@@ -31,7 +31,9 @@ CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "400"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "50"))
 
 # Graduation / demo only — auto-link Alexa to a patient (no spoken link code).
-# Set ALEXA_DEMO_AUTO_LINK=0 or remove after the demo.
-ALEXA_DEMO_AUTO_LINK = os.getenv("ALEXA_DEMO_AUTO_LINK", "").lower() in ("1", "true", "yes")
+# Default ON until you set ALEXA_DEMO_AUTO_LINK=0 after the demo.
+_demo_flag = os.getenv("ALEXA_DEMO_AUTO_LINK", "1").strip().lower()
+ALEXA_DEMO_AUTO_LINK = _demo_flag not in ("0", "false", "no", "off")
 ALEXA_DEMO_PATIENT_NAME = os.getenv("ALEXA_DEMO_PATIENT_NAME", "سامي").strip()
 ALEXA_DEMO_PATIENT_CODE = os.getenv("ALEXA_DEMO_PATIENT_CODE", "").strip()
+ALEXA_DEMO_PATIENT_ID = os.getenv("ALEXA_DEMO_PATIENT_ID", "").strip()

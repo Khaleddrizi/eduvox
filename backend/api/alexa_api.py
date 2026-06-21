@@ -7,6 +7,7 @@ from flask import Flask, g, request, jsonify
 from backend.config import (
     ALEXA_DEMO_AUTO_LINK,
     ALEXA_DEMO_PATIENT_CODE,
+    ALEXA_DEMO_PATIENT_ID,
     ALEXA_DEMO_PATIENT_NAME,
     QUESTION_CACHE_PATH,
     WEAK_CHUNK_THRESHOLD,
@@ -253,6 +254,13 @@ def _clear_alexa_dialog_state():
 
 def _find_demo_patient(db) -> PatientModel | None:
     patient_repo = PatientRepository(db)
+    if ALEXA_DEMO_PATIENT_ID:
+        try:
+            patient = patient_repo.get_by_id(int(ALEXA_DEMO_PATIENT_ID))
+            if patient:
+                return patient
+        except (TypeError, ValueError):
+            pass
     if ALEXA_DEMO_PATIENT_CODE:
         patient = patient_repo.get_by_alexa_code(ALEXA_DEMO_PATIENT_CODE)
         if patient:
@@ -260,34 +268,52 @@ def _find_demo_patient(db) -> PatientModel | None:
     if not ALEXA_DEMO_PATIENT_NAME:
         return None
     target = normalize_arabic_speech(ALEXA_DEMO_PATIENT_NAME)
-    if not target:
+    target_latin = ALEXA_DEMO_PATIENT_NAME.strip().lower()
+    if not target and not target_latin:
         return None
     for patient in db.query(PatientModel).filter(PatientModel.name.isnot(None)).all():
-        name = normalize_arabic_speech(patient.name or "")
-        if name == target or target in name or name in target:
+        raw_name = (patient.name or "").strip()
+        name = normalize_arabic_speech(raw_name)
+        latin = raw_name.lower()
+        if target and (name == target or target in name or name in target):
+            return patient
+        if target_latin and (latin == target_latin or target_latin in latin or latin in target_latin):
             return patient
     return None
 
 
+def _get_demo_patient_context() -> tuple[str | None, PatientModel | None]:
+    try:
+        with get_db() as db:
+            patient = _find_demo_patient(db)
+            if patient:
+                return patient.name, patient
+    except Exception as e:
+        logger.warning("Alexa demo: could not load demo patient: %s", e)
+    return None, None
+
+
 def _ensure_demo_auto_link(user_id: str) -> bool:
-    """Temporary demo mode: bind this Alexa account to the configured patient."""
+    """Temporary demo mode: always bind this Alexa account to the configured patient."""
     if not ALEXA_DEMO_AUTO_LINK or not user_id:
         return False
-    if _alexa_shows_as_linked(user_id):
-        return True
     try:
         with get_db() as db:
             patient = _find_demo_patient(db)
             if not patient:
                 logger.warning(
-                    "Alexa demo: patient not found name=%r code=%r",
+                    "Alexa demo: patient not found id=%r name=%r code=%r",
+                    ALEXA_DEMO_PATIENT_ID or "(none)",
                     ALEXA_DEMO_PATIENT_NAME,
                     ALEXA_DEMO_PATIENT_CODE or "(none)",
                 )
                 return False
             user_repo = UserRepository(db)
             user_repo.link_to_patient(user_id, patient.id)
-            user_repo.clear_pending_fresh_skill_open(user_id)
+            try:
+                user_repo.clear_pending_fresh_skill_open(user_id)
+            except Exception:
+                logger.debug("Alexa demo: pending_fresh column skip", exc_info=True)
             db.commit()
             logger.info(
                 "Alexa demo: auto-linked user=%s patient_id=%s name=%s",
@@ -353,10 +379,15 @@ def _skill_open_response(
     _clear_alexa_dialog_state()
     if user_id:
         _ensure_demo_auto_link(user_id)
-    linked = False if force_fresh else _alexa_shows_as_linked(user_id)
+    linked = False if (force_fresh and not ALEXA_DEMO_AUTO_LINK) else _alexa_shows_as_linked(user_id)
     patient_name = None
     if linked:
         patient_name, _ = _get_linked_patient_context(user_id)
+    elif ALEXA_DEMO_AUTO_LINK:
+        demo_name, _ = _get_demo_patient_context()
+        if demo_name:
+            linked = True
+            patient_name = demo_name
     speech, reprompt = skill_open_speech(
         copy, locale, linked=linked, patient_name=patient_name
     )
@@ -378,7 +409,10 @@ def _handle_start_quiz(
     copy,
 ):
     if not _alexa_shows_as_linked(user_id):
-        return build_alexa_response(copy.link_need_child, reprompt=copy.reprompt_link)
+        if ALEXA_DEMO_AUTO_LINK and user_id and _ensure_demo_auto_link(user_id):
+            pass
+        elif not _alexa_shows_as_linked(user_id):
+            return build_alexa_response(copy.link_need_child, reprompt=copy.reprompt_link)
     questions, error_message = _get_patient_quiz_questions(user_id, locale)
     if error_message:
         return build_alexa_response(
@@ -910,6 +944,22 @@ def create_alexa_app(
         except Exception as exc:
             body["database"] = "error"
             body["database_error"] = str(exc)[:200]
+        body["demo_auto_link"] = ALEXA_DEMO_AUTO_LINK
+        if ALEXA_DEMO_AUTO_LINK:
+            try:
+                with get_db() as db:
+                    demo_patient = _find_demo_patient(db)
+                    if demo_patient:
+                        body["demo_patient"] = {
+                            "id": demo_patient.id,
+                            "name": demo_patient.name,
+                            "code": demo_patient.alexa_code,
+                            "program_id": demo_patient.assigned_program_id,
+                        }
+                    else:
+                        body["demo_patient"] = "NOT_FOUND"
+            except Exception as exc:
+                body["demo_patient_error"] = str(exc)[:200]
         return jsonify(body)
 
     @app.route("/test", methods=["GET"])
