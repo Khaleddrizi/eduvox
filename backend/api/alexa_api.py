@@ -714,7 +714,11 @@ def create_alexa_app(
 
                 has_active_quiz = _sessions.get(session_key) is not None
                 intent_name = resolve_effective_intent(
-                    intent_name, user_blob, has_active_quiz, locale
+                    intent_name,
+                    user_blob,
+                    has_active_quiz,
+                    locale,
+                    utterance_blob=utterance_blob,
                 )
                 raw_intent_name = req.get("intent", {}).get("name", "")
                 logger.info(
@@ -871,9 +875,18 @@ def create_alexa_app(
                     )
 
                 if intent_name == "EndQuizIntent":
-                    if wants_start_quiz(utterance_blob, locale) and not has_active_quiz:
+                    speech_blob = user_blob or utterance_blob
+                    if wants_start_quiz(speech_blob, locale) and not has_active_quiz:
                         return _handle_start_quiz(
                             session_key, user_id, _quiz, _adventure, _sessions, locale, copy
+                        )
+                    if not has_active_quiz:
+                        from backend.core.alexa_i18n import get_quiz_copy
+
+                        return build_alexa_response(
+                            get_quiz_copy(locale).end_no_quiz,
+                            end_session=False,
+                            reprompt=copy.reprompt_quiz,
                         )
                     if _session_is_adventure(_sessions, session_key):
                         text, end, snapshot = _adventure.end_early(session_key)

@@ -572,7 +572,11 @@ class AdventureQuizService:
         s = self._session(session_id)
         locale = _locale_from(s)
         if not s or s.get("mode") != "adventure":
-            return ("There is no program to finish.", True, None) if locale == "en" else ("لا يوجد برنامج لإنهائه.", True, None)
+            return (
+                ("There is no program to finish.", False, None)
+                if locale == "en"
+                else ("لا يوجد برنامج لإنهائه.", False, None)
+            )
         snapshot = self._snapshot(s)
         self._sessions.pop(session_id)
         goodbye = " Goodbye!" if locale == "en" else " إلى اللقاء!"

@@ -456,7 +456,7 @@ class QuizService:
         copy = get_quiz_copy(locale)
         session = self._sessions.get(session_id)
         if not session:
-            return copy.end_no_quiz, True, None
+            return copy.end_no_quiz, False, None
         snapshot = {
             "score": session.get("score", 0),
             "questions": list(session.get("questions", [])),

@@ -373,23 +373,44 @@ def wants_training_program(blob: str, locale: AlexaLocale) -> bool:
     return bool(blob and re.search(r"(برنامج|تدريب|اثيريا|أثيريا|افتح)", blob))
 
 
+def combined_speech_blob(user_blob: str, utterance_blob: str) -> str:
+    """Best available transcript for intent disambiguation (device often omits user_blob)."""
+    user = (user_blob or "").strip()
+    if user:
+        return user
+    return (utterance_blob or "").strip()
+
+
 def resolve_effective_intent(
     intent_name: str,
     blob: str,
     has_active_quiz: bool,
     locale: AlexaLocale,
+    *,
+    utterance_blob: str = "",
 ) -> str:
-    if wants_start_quiz(blob, locale) and not has_active_quiz:
+    speech = combined_speech_blob(blob, utterance_blob)
+
+    if intent_name == "StartQuizIntent" and not has_active_quiz:
+        return "StartQuizIntent"
+
+    # Alexa often misroutes «ابدأ الاختبار» as EndQuizIntent, especially on devices.
+    if intent_name == "EndQuizIntent" and not has_active_quiz:
+        if wants_end_quiz(speech, locale):
+            return "EndQuizIntent"
+        return "StartQuizIntent"
+
+    if wants_start_quiz(speech, locale) and not has_active_quiz:
         if intent_name in (
             "EndQuizIntent",
             "AMAZON.FallbackIntent",
             "AMAZON.HelpIntent",
         ):
             return "StartQuizIntent"
-    if wants_end_quiz(blob, locale) and has_active_quiz:
+    if wants_end_quiz(speech, locale) and has_active_quiz:
         return "EndQuizIntent"
     if intent_name == "AMAZON.FallbackIntent" and (
-        wants_link(blob, locale) or looks_like_link_code_attempt(blob)
+        wants_link(speech, locale) or looks_like_link_code_attempt(speech)
     ):
         return "LinkPatientIntent"
     return intent_name
